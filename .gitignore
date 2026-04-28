@@ -1,40 +1,85 @@
+# =========================
+# Environment variables
+# =========================
+.env
+backend/.env
+frontend/.env
+
+# =========================
 # Python
+# =========================
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.pyc
+
 .venv/
 venv/
 env/
+ENV/
 
-# Environment
-.env
-backend/.env
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
 
-# Upload files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# FastAPI / Backend uploads
+# =========================
 backend/uploads/images/*
 backend/uploads/videos/*
 backend/uploads/audios/*
+
 !backend/uploads/images/.gitkeep
 !backend/uploads/videos/.gitkeep
 !backend/uploads/audios/.gitkeep
 
-# Database
+# =========================
+# Database local files
+# =========================
 *.db
 *.sqlite
 *.sqlite3
 
+# =========================
 # Flutter / Dart
+# =========================
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
+.pub-cache/
+.pub/
 build/
 
+# Android / iOS generated files
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework
+frontend/ios/Flutter/Flutter.podspec
+
+# =========================
 # IDE
+# =========================
 .vscode/
 .idea/
 
-# System
+# =========================
+# OS
+# =========================
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/

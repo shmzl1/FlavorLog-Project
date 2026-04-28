@@ -1,0 +1,63 @@
+# =========================
+# Web Framework
+# =========================
+fastapi
+uvicorn[standard]
+python-multipart
+
+# =========================
+# Database
+# =========================
+sqlalchemy
+psycopg2-binary
+alembic
+
+# =========================
+# Data Validation / Config
+# =========================
+pydantic
+pydantic-settings
+python-dotenv
+
+# =========================
+# Authentication
+# =========================
+python-jose[cryptography]
+passlib[bcrypt]
+
+# =========================
+# HTTP Requests
+# =========================
+requests
+httpx
+
+# =========================
+# Data Processing
+# =========================
+numpy
+pandas
+scikit-learn
+
+# =========================
+# Computer Vision / AI
+# =========================
+opencv-python
+pillow
+ultralytics
+
+# =========================
+# Audio / Multimodal
+# =========================
+webrtcvad
+moviepy
+
+# =========================
+# LLM API Client
+# =========================
+openai
+
+# =========================
+# Testing
+# =========================
+pytest
+pytest-asyncio
