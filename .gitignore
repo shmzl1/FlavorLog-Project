@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Environment
+.env
+backend/.env
+
+# Upload files
+backend/uploads/images/*
+backend/uploads/videos/*
+backend/uploads/audios/*
+!backend/uploads/images/.gitkeep
+!backend/uploads/videos/.gitkeep
+!backend/uploads/audios/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
