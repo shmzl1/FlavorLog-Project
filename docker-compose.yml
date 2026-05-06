@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: flavorlog_password
       TZ: Asia/Shanghai
     ports:
-      - "5432:5432"
+      - "5433:5432"  # 重点：左边的 5432 改成 5433！
     volumes:
       - flavorlog_postgres_data:/var/lib/postgresql/data
       - ./backend/database/init:/docker-entrypoint-initdb.d
