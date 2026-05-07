@@ -36,6 +36,10 @@ class CommunityPost(Base):
     image_urls: Mapped[list] = mapped_column(JSONB, server_default='[]')
     
     like_count: Mapped[int] = mapped_column(default=0)
+    tags: Mapped[list] = mapped_column(JSONB, server_default='[]')
+    visibility: Mapped[str] = mapped_column(String(30), default='public')
+    comment_count: Mapped[int] = mapped_column(default=0)
+    fork_count: Mapped[int] = mapped_column(default=0)
     
     # 💡 核心修复：Mapped 括号内写 datetime 类型，func.now() 放在右侧作为默认值
     created_at: Mapped[datetime] = mapped_column(
@@ -58,3 +62,30 @@ class CommunityPost(Base):
         而不是看到一串晦涩的对象内存地址。
         """
         return f"<CommunityPost(title={self.title})>"
+
+
+class PostComment(Base):
+    __tablename__ = "post_comments"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    post_id: Mapped[int] = mapped_column(Integer, ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class PostLike(Base):
+    __tablename__ = "post_likes"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    post_id: Mapped[int] = mapped_column(Integer, ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class PostFork(Base):
+    __tablename__ = "post_forks"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    post_id: Mapped[int] = mapped_column(Integer, ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    target_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    target_meal_type: Mapped[Optional[str]] = mapped_column(String(30))
+    new_plan_id: Mapped[Optional[int]] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

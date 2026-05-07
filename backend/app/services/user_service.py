@@ -59,8 +59,8 @@ class UserService:
         db_user = User(
             username=user_in.username,
             email=user_in.email,
-            hashed_password=hashed_pwd,
-            is_active=user_in.is_active
+            password_hash=hashed_pwd,
+            #is_active=user_in.is_active
         )
         
         # 3. 将对象添加到当前会话
@@ -73,3 +73,20 @@ class UserService:
         db.refresh(db_user)
         
         return db_user
+    
+    @staticmethod
+    def authenticate_user(db: Session, email: str, password: str) -> User | None:
+        """
+        验证用户登录。
+        1. 先根据邮箱找到用户。
+        2. 如果用户存在，再验证明文密码与数据库里的密文是否匹配。
+        """
+        user = UserService.get_user_by_email(db, email=email)
+        if not user:
+            return None
+        
+        # 使用我们之前在 security.py 写的 verify_password 方法比对哈希
+        if not pwd_hasher.verify_password(password, user.password_hash):
+            return None
+            
+        return user
