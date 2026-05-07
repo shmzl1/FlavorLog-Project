@@ -1,3 +1,4 @@
+
 # FlavorLog Backend
 
 ## 一、后端说明
@@ -59,12 +60,13 @@ backend/
 
 建议所有后端成员使用以下环境：
 
-| 工具           | 建议版本   |
-| -------------- | ---------- |
-| Python         | 3.11       |
-| PostgreSQL     | 16         |
-| Docker Desktop | 最新稳定版 |
-| VSCode         | 最新稳定版 |
+| 工具           | 建议版本                   |
+| -------------- | -------------------------- |
+| Python         | 3.11                       |
+| Miniconda      | 最新稳定版                 |
+| PostgreSQL     | 16，由 Docker Compose 启动 |
+| Docker Desktop | 最新稳定版                 |
+| VS Code        | 最新稳定版                 |
 
 ---
 
@@ -72,11 +74,7 @@ backend/
 
 ### 1. 进入后端目录
 
-```powershell
-cd D:\homework\se\project\FlavorLog\backend
-```
-
-如果是从项目根目录进入：
+如果你在项目根目录：
 
 ```powershell
 cd backend
@@ -84,31 +82,39 @@ cd backend
 
 ---
 
-### 2. 创建 Python 虚拟环境
+### 2. 创建 conda 环境
 
 ```powershell
-python -m venv .venv
+conda create -n flavorlog python=3.11 -y
 ```
 
 ---
 
-### 3. 激活虚拟环境
-
-Windows PowerShell：
+### 3. 激活 conda 环境
 
 ```powershell
-.venv\Scripts\activate
+conda activate flavorlog
 ```
 
 如果激活成功，命令行前面会出现类似：
 
 ```text
-(.venv)
+(flavorlog)
 ```
+
+如果 PowerShell 无法识别 `conda activate`，可以先执行：
+
+```powershell
+conda init powershell
+```
+
+然后关闭当前 PowerShell，重新打开。
 
 ---
 
 ### 4. 安装依赖
+
+确保当前目录是 `backend/`：
 
 ```powershell
 pip install -r requirements.txt
@@ -137,7 +143,7 @@ PostgreSQL 由项目根目录下的 `docker-compose.yml` 统一启动。
 先回到项目根目录：
 
 ```powershell
-cd D:\homework\se\project\FlavorLog
+cd ..
 ```
 
 启动数据库：
@@ -152,7 +158,7 @@ docker compose up -d
 docker ps
 ```
 
-如果看到 `flavorlog_postgres`，说明 PostgreSQL 已启动。
+如果看到 `flavorlog-postgres`，说明 PostgreSQL 已启动。
 
 ---
 
@@ -162,6 +168,12 @@ docker ps
 
 ```powershell
 cd backend
+```
+
+确认 conda 环境已激活：
+
+```powershell
+conda activate flavorlog
 ```
 
 启动 FastAPI：
@@ -203,6 +215,12 @@ docker compose down -v
 docker compose up -d
 ```
 
+### 激活后端 conda 环境
+
+```powershell
+conda activate flavorlog
+```
+
 ### 启动后端
 
 在 `backend/` 目录下执行：
@@ -234,17 +252,24 @@ pip freeze > requirements.txt
 ```text
 数据库类型：PostgreSQL
 主机地址：localhost
-端口：5432
-数据库名：flavorlog_db
-用户名：flavorlog
-密码：flavorlog123
+宿主机端口：5433
+容器内端口：5432
+数据库名：flavorlog
+用户名：flavorlog_user
+密码：flavorlog_password
 ```
 
-对应连接字符串：
+对应 SQLAlchemy 连接字符串：
 
 ```text
-postgresql://flavorlog:flavorlog123@localhost:5432/flavorlog_db
+postgresql+psycopg2://flavorlog_user:flavorlog_password@localhost:5433/flavorlog
 ```
+
+注意：
+
+- 后端连接 Docker 数据库时使用宿主机端口 `5433`。
+- 容器内部 PostgreSQL 仍然运行在 `5432`。
+- 如果修改数据库端口，必须同步修改根目录 `.env`、`backend/.env` 和 `docker-compose.yml`。
 
 ---
 
@@ -366,7 +391,8 @@ app/scripts/
 1. 不要提交 `.env` 文件。
 2. 不要提交真实 API Key。
 3. 不要提交数据库密码、Token 等敏感信息。
-4. 不要提交 `.venv/` 虚拟环境目录。
+4. 不要提交 conda 环境目录。
 5. 不要提交真实上传的图片、视频、音频文件。
 6. 修改公共配置文件前，先在群里说明。
 7. 开发前先执行 `git pull`，避免冲突。
+8. 文件必须保留正常换行和缩进，不能把 YAML、Python、SQL、Markdown 压成一整行。
