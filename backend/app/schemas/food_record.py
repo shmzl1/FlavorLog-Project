@@ -64,3 +64,8 @@ class FoodRecordResponse(FoodRecordBase):
 
     class Config:
         from_attributes = True
+
+class PhotoRecognitionRequest(BaseModel):
+    file_id: int
+    meal_type: str
+    record_time: str
