@@ -1,20 +1,28 @@
 services:
   postgres:
-    image: postgres:16
-    container_name: flavorlog-postgres
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    container_name: ${POSTGRES_CONTAINER_NAME:-flavorlog-postgres}
     restart: unless-stopped
+
     environment:
-      POSTGRES_DB: flavorlog
-      POSTGRES_USER: flavorlog_user
-      POSTGRES_PASSWORD: flavorlog_password
+      POSTGRES_DB: ${POSTGRES_DB:-flavorlog}
+      POSTGRES_USER: ${POSTGRES_USER:-flavorlog_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flavorlog_password}
       TZ: Asia/Shanghai
+
     ports:
-      - "5433:5432"  # 重点：左边的 5432 改成 5433！
+      - "${POSTGRES_HOST_PORT:-5433}:${POSTGRES_CONTAINER_PORT:-5432}"
+
     volumes:
       - flavorlog_postgres_data:/var/lib/postgresql/data
       - ./backend/database/init:/docker-entrypoint-initdb.d
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flavorlog_user -d flavorlog"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-flavorlog_user} -d ${POSTGRES_DB:-flavorlog}"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
