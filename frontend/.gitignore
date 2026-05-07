@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# VS Code personal settings
+.vscode/settings.json
+frontend/.vscode/settings.json
+
