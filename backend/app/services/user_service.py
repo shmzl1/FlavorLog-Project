@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import pwd_hasher
 
 class UserService:
@@ -90,3 +90,19 @@ class UserService:
             return None
             
         return user
+    
+    @staticmethod
+    def update_user(db: Session, db_user: User, obj_in: UserUpdate) -> User:
+        """
+        更新用户信息。
+        """
+        # 将 Pydantic 对象转为字典，排除未设置的字段
+        update_data = obj_in.model_dump(exclude_unset=True)
+        
+        for field in update_data:
+            setattr(db_user, field, update_data[field])
+            
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user

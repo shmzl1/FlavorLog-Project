@@ -1,8 +1,8 @@
 # backend/app/schemas/user.py
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class UserBase(BaseModel):
     """
@@ -34,19 +34,43 @@ class UserResponse(UserBase):
 
     作用：
     定义后端向前端返回用户数据时的结构。
-    该类包含了数据库自动生成的 `id` 和 `created_at` 等字段，但不包含明文密码。
-    内部的 Config 设定是 FastAPI 序列化的核心。
+    💡 关键修改：同步了个人资料相关的字段，确保在 API 返回中能看到这些信息。
     """
     id: int
     created_at: datetime
     
+    # 💡 新增：使返回的数据包含详细的个人资料
+    nickname: Optional[str] = None
+    gender: Optional[str] = "unknown"
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    health_goal: Optional[str] = None
+    
+    # 支持返回饮食偏好和过敏源列表
+    diet_preference: List[str] = []
+    allergens: List[str] = []
+    
     class Config:
         """
         Pydantic 内部配置类。
-        
-        作用：
-        开启 `from_attributes = True` (在 Pydantic V1 中叫 orm_mode)。
-        这个配置极为关键，它允许 Pydantic 越过传统的字典结构，
-        直接读取 SQLAlchemy 返回的 ORM 对象的属性，并将其无缝转化为前端需要的 JSON。
+        作用：开启 `from_attributes = True`，允许直接读取 SQLAlchemy ORM 对象。
         """
+        from_attributes = True
+
+class UserUpdate(BaseModel):
+    """
+    用户资料更新契约。
+    所有字段均为可选，前端传哪个，我们就改哪个。
+    """
+    nickname: Optional[str] = Field(None, max_length=50)
+    gender: Optional[str] = Field(None, description="unknown, male, female")
+    height_cm: Optional[float] = Field(None, ge=0, le=300)
+    weight_kg: Optional[float] = Field(None, ge=0, le=500)
+    health_goal: Optional[str] = Field(None, description="lose_weight, keep_fit, gain_muscle")
+    
+    # 允许修改饮食偏好和过敏源 (对应数据库中的 JSONB)
+    diet_preference: Optional[List[str]] = None
+    allergens: Optional[List[str]] = None
+
+    class Config:
         from_attributes = True
