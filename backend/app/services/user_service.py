@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import pwd_hasher
 
 class UserService:
@@ -59,8 +59,8 @@ class UserService:
         db_user = User(
             username=user_in.username,
             email=user_in.email,
-            hashed_password=hashed_pwd,
-            is_active=user_in.is_active
+            password_hash=hashed_pwd,
+            #is_active=user_in.is_active
         )
         
         # 3. 将对象添加到当前会话
@@ -72,4 +72,37 @@ class UserService:
         # 5. 刷新对象，确保 db_user 获取到数据库自动生成的 id 和 created_at 等字段
         db.refresh(db_user)
         
+        return db_user
+    
+    @staticmethod
+    def authenticate_user(db: Session, email: str, password: str) -> User | None:
+        """
+        验证用户登录。
+        1. 先根据邮箱找到用户。
+        2. 如果用户存在，再验证明文密码与数据库里的密文是否匹配。
+        """
+        user = UserService.get_user_by_email(db, email=email)
+        if not user:
+            return None
+        
+        # 使用我们之前在 security.py 写的 verify_password 方法比对哈希
+        if not pwd_hasher.verify_password(password, user.password_hash):
+            return None
+            
+        return user
+    
+    @staticmethod
+    def update_user(db: Session, db_user: User, obj_in: UserUpdate) -> User:
+        """
+        更新用户信息。
+        """
+        # 将 Pydantic 对象转为字典，排除未设置的字段
+        update_data = obj_in.model_dump(exclude_unset=True)
+        
+        for field in update_data:
+            setattr(db_user, field, update_data[field])
+            
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
         return db_user

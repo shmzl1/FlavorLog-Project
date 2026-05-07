@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Text, ForeignKey, DateTime, Integer
+from sqlalchemy import Numeric, String, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -34,5 +34,38 @@ class AITask(Base):
     result_json: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}')
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+# 追加到 backend/app/models/ai_task.py 底部
+
+class AIAnalysisLog(Base):
+    __tablename__ = "ai_analysis_logs"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    task_id: Mapped[Optional[str]] = mapped_column(String(100))
+    provider: Mapped[Optional[str]] = mapped_column(String(50))
+    model_name: Mapped[Optional[str]] = mapped_column(String(100))
+    prompt_summary: Mapped[Optional[str]] = mapped_column(Text)
+    input_json: Mapped[dict] = mapped_column(JSONB, server_default='{}')
+    output_json: Mapped[dict] = mapped_column(JSONB, server_default='{}')
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    success: Mapped[bool] = mapped_column(default=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class RecipeRecommendation(Base):
+    __tablename__ = "recipe_recommendations"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[Optional[str]] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    recipe_type: Mapped[Optional[str]] = mapped_column(String(50))
+    ingredients_json: Mapped[list] = mapped_column(JSONB, server_default='[]')
+    steps_json: Mapped[list] = mapped_column(JSONB, server_default='[]')
+    nutrition_json: Mapped[dict] = mapped_column(JSONB, server_default='{}')
+    score: Mapped[Optional[float]] = mapped_column(Numeric(6, 4))
+    reason: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

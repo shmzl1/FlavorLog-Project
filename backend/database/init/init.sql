@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS fridge_items (
     quantity NUMERIC(10, 2) DEFAULT 1,
     unit VARCHAR(30),
     weight_g NUMERIC(10, 2),
-    expire_date DATE,
+    -- 💡 核心修复点：将 expire_date DATE 改为与 Python 契约完全一致的 expiration_date TIMESTAMPTZ
+    expiration_date TIMESTAMPTZ,
     storage_location VARCHAR(50),
     remark TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -97,7 +98,7 @@ CREATE TABLE IF NOT EXISTS health_feedbacks (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     food_record_id BIGINT REFERENCES food_records(id) ON DELETE SET NULL,
-    feedback_time TIMESTAMPTZ NOT NULL,
+    feedback_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     bloating_level INT DEFAULT 0,
     fatigue_level INT DEFAULT 0,
     mood VARCHAR(50),
@@ -195,7 +196,8 @@ CREATE INDEX IF NOT EXISTS idx_food_records_user_time ON food_records(user_id, r
 CREATE INDEX IF NOT EXISTS idx_food_record_items_record_id ON food_record_items(food_record_id);
 
 CREATE INDEX IF NOT EXISTS idx_fridge_items_user_id ON fridge_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_fridge_items_expire_date ON fridge_items(expire_date);
+-- 💡 同步修复索引字段名
+CREATE INDEX IF NOT EXISTS idx_fridge_items_expiration_date ON fridge_items(expiration_date);
 
 CREATE INDEX IF NOT EXISTS idx_health_feedbacks_user_id ON health_feedbacks(user_id);
 CREATE INDEX IF NOT EXISTS idx_health_feedbacks_food_record_id ON health_feedbacks(food_record_id);
@@ -226,7 +228,7 @@ INSERT INTO users (
 VALUES (
     'demo_user',
     'demo@example.com',
-    'demo_password_hash_replace_later',
+    '$2b$12$L...这里是你原来想要替换的密码哈希...', 
     '演示用户',
     'unknown',
     170,

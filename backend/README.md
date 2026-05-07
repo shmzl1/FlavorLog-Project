@@ -25,30 +25,50 @@
 ```text
 backend/
 │
-├── README.md
-├── requirements.txt
-├── main.py
-├── .env.example
+├── README.md               # 本文档
+├── requirements.txt        # 依赖包列表
+├── main.py                 # 🚀 FastAPI 应用入口文件 (包含全局配置与运行脚本)
+├── .env                    # ⚠️ 本地环境变量 (千万不要提交到 Git!)
+├── .env.example            # 环境变量模板
+├── alembic.ini             # Alembic 迁移工具配置文件
 │
-├── app/
-│   ├── api/
-│   ├── core/
-│   ├── db/
-│   ├── models/
-│   ├── schemas/
-│   ├── services/
-│   ├── algorithms/
-│   ├── utils/
-│   └── scripts/
+├── alembic/                # 数据库迁移版本控制目录
+│   ├── env.py              # 迁移环境配置 (已导入所有 Models)
+│   └── versions/           # 自动生成的数据库变更脚本存放处
 │
-├── database/
-│   ├── init/
-│   ├── migrations/
-│   └── seeds/
+├── app/                    # 核心业务逻辑代码
+│   ├── api/                # Controller 层：API 路由与接口
+│   │   ├── deps.py         # 🛡️ 全局依赖 (数据库 Session, Token 保安等)
+│   │   ├── router.py       # API 总路由挂载点
+│   │   └── v1/             # V1 版本业务接口
+│   │       └── users.py    # 用户注册、登录与个人信息接口
+│   │
+│   ├── core/               # 核心配置与工具
+│   │   ├── config.py       # 全局环境变量映射类 (Pydantic Settings)
+│   │   └── security.py     # 密码哈希与 JWT 签发工具类
+│   │
+│   ├── db/                 # 数据库底层交互
+│   │   ├── base.py         # SQLAlchemy 声明基类 (Base)
+│   │   └── session.py      # 数据库连接池与会话管理器
+│   │
+│   ├── models/             # ORM 数据库实体模型
+│   │   ├── ai_task.py      # AI 异步任务与日志
+│   │   ├── community.py    # 社区帖子、点赞、评论
+│   │   ├── food_record.py  # 饮食主记录与食物明细
+│   │   ├── fridge_item.py  # 赛博冰箱食材库
+│   │   ├── health.py       # 餐后健康反馈
+│   │   ├── taste.py        # 用户口味向量
+│   │   ├── upload.py       # 统一上传资产管理
+│   │   └── user.py         # 用户表
+│   │
+│   ├── schemas/            # Pydantic 数据契约层 (DTO/VO)
+│   │   ├── token.py        # Token 响应格式
+│   │   └── user.py         # 用户请求与响应格式
+│   │
+│   └── services/           # Service 层：核心业务逻辑
+│       └── user_service.py # 用户模块的具体数据库操作逻辑
 │
-├── tests/
-│
-└── uploads/
+└── uploads/                # 本地上传文件暂存区
     ├── images/
     ├── videos/
     └── audios/
@@ -60,6 +80,7 @@ backend/
 
 建议所有后端成员使用以下环境：
 
+
 | 工具           | 建议版本                   |
 | -------------- | -------------------------- |
 | Python         | 3.11                       |
@@ -67,6 +88,7 @@ backend/
 | PostgreSQL     | 16，由 Docker Compose 启动 |
 | Docker Desktop | 最新稳定版                 |
 | VS Code        | 最新稳定版                 |
+
 
 ---
 

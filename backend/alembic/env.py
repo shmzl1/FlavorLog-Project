@@ -32,9 +32,11 @@ from app.db.base import Base
 from app.models.user import User
 from app.models.food_record import FoodRecord, FoodRecordItem
 from app.models.fridge_item import FridgeItem
-from app.models.community import CommunityPost
+from app.models.community import CommunityPost, PostComment, PostLike, PostFork
 from app.models.health import HealthFeedback
-from app.models.ai_task import AITask
+from app.models.ai_task import AITask, AIAnalysisLog, RecipeRecommendation
+from app.models.upload import UploadFile
+from app.models.taste import TasteVector
 # 如果后续增加了 UploadFile 等新模型，请务必继续在此处添加 import
 
 # ==========================================
