@@ -5,6 +5,8 @@ from app.api.v1 import users
 from app.api.v1 import fridge
 from app.api.v1 import food_records
 from app.api.v1 import health
+from app.api.v1 import upload
+from app.api.v1 import community
 
 api_router = APIRouter()
 
@@ -18,3 +20,7 @@ api_router.include_router(fridge.router, prefix="/fridge", tags=["Fridge (赛博
 api_router.include_router(food_records.router, prefix="/food_records", tags=["Food Records (饮食记录)"])
 
 api_router.include_router(health.router, prefix="/health", tags=["Health (健康反馈)"])
+
+api_router.include_router(upload.router, prefix="/uploads", tags=["Uploads (文件上传)"])
+
+api_router.include_router(community.router, prefix="/community", tags=["Community (社区模块)"])

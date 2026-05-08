@@ -1,5 +1,6 @@
 # backend/main.py
 
+import os
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -7,6 +8,8 @@ import uvicorn
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+# 💡 新增导入：用于挂载静态文件目录
+from fastapi.staticfiles import StaticFiles
 
 # 导入我们的全局配置和路由总线
 from app.core.config import settings
@@ -53,7 +56,19 @@ app.add_middleware(
 )
 
 # ==========================================
-# 4. 基础探活路由 (Health Check)
+# 4. 💡 静态资源映射 (非常重要)
+# ==========================================
+# 确保物理文件夹存在，否则 FastAPI 挂载时会报错崩溃
+os.makedirs("uploads/images", exist_ok=True)
+os.makedirs("uploads/videos", exist_ok=True)
+os.makedirs("uploads/audios", exist_ok=True)
+
+# 告诉 FastAPI：当有人访问 /uploads 开头的网址时，直接去本地的 uploads 文件夹拿文件给他
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+# ==========================================
+# 5. 基础探活路由 (Health Check)
 # ==========================================
 @app.get("/")
 def root():
@@ -86,14 +101,14 @@ def api_health_check():
     )
 
 # ==========================================
-# 5. 挂载核心业务路由
+# 6. 挂载核心业务路由
 # ==========================================
 # 这里就是打通我们刚才写的 users.py 等业务接口的关键桥梁！
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
 
 # ==========================================
-# 6. 本地开发启动入口
+# 7. 本地开发启动入口
 # ==========================================
 if __name__ == "__main__":
     # 使用 uvicorn 启动，并开启热更新
