@@ -34,6 +34,11 @@ class UserService:
         return db.query(User).filter(User.email == email).first()
 
     @staticmethod
+    def get_user_by_username(db: Session, username: str) -> User | None:
+        """根据用户名查询用户。"""
+        return db.query(User).filter(User.username == username).first()
+
+    @staticmethod
     def create_user(db: Session, user_in: UserCreate) -> User:
         """
         执行用户注册的核心创建逻辑。
@@ -60,6 +65,7 @@ class UserService:
             username=user_in.username,
             email=user_in.email,
             password_hash=hashed_pwd,
+            nickname=user_in.nickname,
             #is_active=user_in.is_active
         )
         
@@ -89,6 +95,18 @@ class UserService:
         if not pwd_hasher.verify_password(password, user.password_hash):
             return None
             
+        return user
+
+    @staticmethod
+    def authenticate_account(db: Session, account: str, password: str) -> User | None:
+        """支持使用邮箱或用户名登录。"""
+        user = UserService.get_user_by_email(db, email=account)
+        if not user:
+            user = UserService.get_user_by_username(db, username=account)
+        if not user:
+            return None
+        if not pwd_hasher.verify_password(password, user.password_hash):
+            return None
         return user
     
     @staticmethod

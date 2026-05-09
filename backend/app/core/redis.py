@@ -2,7 +2,7 @@
 
 import os
 # 💡 明确导入 asyncio 下的 Redis 类
-from redis.asyncio import Redis
+from redis.asyncio import Redis # type: ignore
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

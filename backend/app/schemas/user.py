@@ -1,7 +1,7 @@
 # backend/app/schemas/user.py
 
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 
 class UserBase(BaseModel):
@@ -27,6 +27,7 @@ class UserCreate(UserBase):
     我们特意将其与响应模型分离，确保密码只在接收时有效，绝不会被意外暴露给外部。
     """
     password: str
+    nickname: Optional[str] = None
 
 class UserResponse(UserBase):
     """
@@ -38,10 +39,13 @@ class UserResponse(UserBase):
     """
     id: int
     created_at: datetime
+    updated_at: Optional[datetime] = None
     
     # 💡 新增：使返回的数据包含详细的个人资料
     nickname: Optional[str] = None
+    avatar_url: Optional[str] = None
     gender: Optional[str] = "unknown"
+    birth_date: Optional[date] = None
     height_cm: Optional[float] = None
     weight_kg: Optional[float] = None
     health_goal: Optional[str] = None
