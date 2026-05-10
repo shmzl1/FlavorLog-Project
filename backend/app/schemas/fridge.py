@@ -10,6 +10,7 @@ class FridgeItemBase(BaseModel):
     category: Optional[str] = Field("其他", description="分类：蔬菜、肉类、水果等")
     quantity: float = Field(1.0, description="数量")
     unit: str = Field("个", description="单位：个、克、毫升等")
+    # 💡 确保这里有默认值 None，匹配 API 调用时的需求
     expiration_date: Optional[datetime] = Field(None, description="过期时间")
 
 class FridgeItemCreate(FridgeItemBase):
@@ -27,7 +28,9 @@ class FridgeItemUpdate(BaseModel):
     unit: Optional[str] = None
     expiration_date: Optional[datetime] = None
 
-class FridgeItemResponse(FridgeItemBase):
+# 💡 核心修改：将类名从 FridgeItemResponse 改为 FridgeItem 
+# 这样才能匹配 v1/fridge.py 中的 from app.schemas.fridge import FridgeItem
+class FridgeItem(FridgeItemBase):
     """返回给前端的食材格式"""
     id: int
     user_id: int

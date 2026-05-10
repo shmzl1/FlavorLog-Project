@@ -1,5 +1,6 @@
 class ApiEndpoints {
-  static const String localBaseUrl = 'http://127.0.0.1:8000/api/v1';
+  // 💡 修改点：专门为安卓模拟器配置的 IP
+  static const String localBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
   // 真机联调时，把这里改成电脑局域网 IP。
   static const String lanBaseUrl = 'http://192.168.1.100:8000/api/v1';

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import shutil
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -29,7 +30,18 @@ class UploadService:
         return f"{ts}_{uuid4().hex[:10]}{ext}"
 
     @staticmethod
-    async def save(
+    def get_upload_dir(file_type: str) -> str:
+        file_type = file_type.lower()
+        if file_type == "image":
+            return settings.IMAGE_UPLOAD_DIR
+        if file_type == "video":
+            return settings.VIDEO_UPLOAD_DIR
+        if file_type == "audio":
+            return settings.AUDIO_UPLOAD_DIR
+        raise ValueError("unsupported file_type")
+
+    @staticmethod
+    def save_file(
         db: Session,
         *,
         user_id: int,
@@ -37,40 +49,27 @@ class UploadService:
         file_type: str,
         scene: str | None,
     ) -> UploadFileModel:
-        file_type = file_type.lower()
-        if file_type == "image":
-            rel_dir = settings.IMAGE_UPLOAD_DIR
-            max_mb = settings.MAX_IMAGE_SIZE_MB
-        elif file_type == "video":
-            rel_dir = settings.VIDEO_UPLOAD_DIR
-            max_mb = settings.MAX_VIDEO_SIZE_MB
-        elif file_type == "audio":
-            rel_dir = settings.AUDIO_UPLOAD_DIR
-            max_mb = settings.MAX_AUDIO_SIZE_MB
-        else:
-            raise ValueError("unsupported file_type")
+        rel_dir = UploadService.get_upload_dir(file_type)
 
-        backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
         abs_dir = os.path.join(backend_root, rel_dir)
         UploadService._ensure_dir(abs_dir)
 
         name = UploadService._new_filename(file.filename or file_type)
         abs_path = os.path.join(abs_dir, name)
 
-        content = await file.read()
-        size_bytes = len(content)
-        if size_bytes > int(max_mb) * 1024 * 1024:
-            raise ValueError("file too large")
+        with open(abs_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        with open(abs_path, "wb") as f:
-            f.write(content)
+        size_bytes = os.path.getsize(abs_path)
 
-        file_url = f"/uploads/{os.path.basename(rel_dir)}/{name}"
+        rel_dir_norm = rel_dir.strip("/").replace("\\", "/")
+        file_url = f"/{rel_dir_norm}/{name}"
         db_obj = UploadFileModel(
             user_id=user_id,
             file_name=name,
             file_url=file_url,
-            file_type=file_type,
+            file_type=file_type.lower(),
             mime_type=file.content_type,
             size_bytes=size_bytes,
             scene=scene,

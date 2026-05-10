@@ -1,15 +1,684 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-import '../../components/placeholder_page.dart';
+import '../../controllers/food_record_controller.dart';
+import '../../models/food_record_model.dart';
 
 class FoodRecordPage extends StatelessWidget {
   const FoodRecordPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const PlaceholderPage(
-      title: '饮食记录',
-      description: '这里由刘子恒负责：饮食记录新增、查询、图片/视频/音频上传、识别结果确认。',
+    final controller = Get.find<FoodRecordController>();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('饮食记录'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            tooltip: '选择日期',
+            onPressed: () => _pickDate(context, controller),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _DateBar(controller: controller),
+          _SummaryBar(controller: controller),
+          Expanded(child: _RecordList(controller: controller)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddDialog(context, controller),
+        icon: const Icon(Icons.add),
+        label: const Text('新增记录'),
+      ),
+    );
+  }
+
+  Future<void> _pickDate(
+    BuildContext context,
+    FoodRecordController controller,
+  ) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: controller.selectedDate.value,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      await controller.changeDate(picked);
+    }
+  }
+
+  void _showAddDialog(BuildContext context, FoodRecordController controller) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _AddRecordSheet(controller: controller),
+    );
+  }
+}
+
+// ── 日期标题栏 ────────────────────────────────────────────────────────────────
+
+class _DateBar extends StatelessWidget {
+  const _DateBar({required this.controller});
+  final FoodRecordController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final d = controller.selectedDate.value;
+      final label =
+          '${d.year}年${d.month.toString().padLeft(2, '0')}月${d.day.toString().padLeft(2, '0')}日';
+      return Container(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.event_note, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+// ── 当日营养汇总 ────────────────────────────────────────────────────────────
+
+class _SummaryBar extends StatelessWidget {
+  const _SummaryBar({required this.controller});
+  final FoodRecordController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.records.isEmpty) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _NutrientChip(
+              label: '热量',
+              value: '${controller.todayTotalCalories.toStringAsFixed(0)} kcal',
+            ),
+            _NutrientChip(
+              label: '蛋白质',
+              value: '${controller.todayTotalProtein.toStringAsFixed(1)} g',
+            ),
+            _NutrientChip(
+              label: '脂肪',
+              value: '${controller.todayTotalFat.toStringAsFixed(1)} g',
+            ),
+            _NutrientChip(
+              label: '碳水',
+              value:
+                  '${controller.todayTotalCarbohydrate.toStringAsFixed(1)} g',
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _NutrientChip extends StatelessWidget {
+  const _NutrientChip({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontWeight: FontWeight.bold)),
+        Text(label,
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: Colors.grey)),
+      ],
+    );
+  }
+}
+
+// ── 记录列表 ────────────────────────────────────────────────────────────────
+
+class _RecordList extends StatelessWidget {
+  const _RecordList({required this.controller});
+  final FoodRecordController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (controller.errorMessage.value.isNotEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(controller.errorMessage.value,
+                  style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: controller.loadRecords,
+                child: const Text('重试'),
+              ),
+            ],
+          ),
+        );
+      }
+      if (controller.records.isEmpty) {
+        return const Center(child: Text('今天还没有饮食记录，点击右下角新增'));
+      }
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+        itemCount: controller.records.length,
+        itemBuilder: (context, index) {
+          return _RecordCard(
+            record: controller.records[index],
+            controller: controller,
+          );
+        },
+      );
+    });
+  }
+}
+
+// ── 单条记录卡片 ───────────────────────────────────────────────────────────
+
+class _RecordCard extends StatelessWidget {
+  const _RecordCard({required this.record, required this.controller});
+  final FoodRecordModel record;
+  final FoodRecordController controller;
+
+  static const Map<String, String> _mealLabels = {
+    'breakfast': '早餐',
+    'lunch': '午餐',
+    'dinner': '晚餐',
+    'snack': '加餐',
+  };
+
+  static const Map<String, IconData> _mealIcons = {
+    'breakfast': Icons.wb_sunny_outlined,
+    'lunch': Icons.lunch_dining,
+    'dinner': Icons.dinner_dining,
+    'snack': Icons.cookie_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final mealLabel = _mealLabels[record.mealType] ?? record.mealType;
+    final mealIcon = _mealIcons[record.mealType] ?? Icons.restaurant;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ExpansionTile(
+        leading: Icon(mealIcon, color: Theme.of(context).colorScheme.primary),
+        title: Text(mealLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          '${record.totalCalories.toStringAsFixed(0)} kcal'
+          '${record.description != null ? '  ·  ${record.description}' : ''}',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: '删除',
+              onPressed: () => _confirmDelete(context),
+            ),
+            const Icon(Icons.expand_more),
+          ],
+        ),
+        children: [
+          if (record.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(),
+                  ...record.items.map(_buildItemRow),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemRow(FoodItemModel item) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.circle, size: 6, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('${item.foodName}  ${item.weightG.toStringAsFixed(0)}g'),
+          ),
+          Text('${item.calories.toStringAsFixed(0)} kcal',
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这条饮食记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              final ok = await controller.deleteRecord(record.id);
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(controller.errorMessage.value)),
+                );
+              }
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 新增记录底部表单 ────────────────────────────────────────────────────────
+
+class _AddRecordSheet extends StatefulWidget {
+  const _AddRecordSheet({required this.controller});
+  final FoodRecordController controller;
+
+  @override
+  State<_AddRecordSheet> createState() => _AddRecordSheetState();
+}
+
+class _AddRecordSheetState extends State<_AddRecordSheet> {
+  final _formKey = GlobalKey<FormState>();
+  String _mealType = 'lunch';
+  DateTime _recordTime = DateTime.now();
+  final _descController = TextEditingController();
+
+  // 食物明细列表
+  final List<_FoodItemForm> _itemForms = [_FoodItemForm()];
+
+  static const List<DropdownMenuItem<String>> _mealItems = [
+    DropdownMenuItem(value: 'breakfast', child: Text('早餐')),
+    DropdownMenuItem(value: 'lunch', child: Text('午餐')),
+    DropdownMenuItem(value: 'dinner', child: Text('晚餐')),
+    DropdownMenuItem(value: 'snack', child: Text('加餐')),
+  ];
+
+  @override
+  void dispose() {
+    _descController.dispose();
+    for (final f in _itemForms) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '新增饮食记录',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // 餐次
+                DropdownButtonFormField<String>(
+                  value: _mealType,
+                  decoration: const InputDecoration(
+                    labelText: '餐次',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _mealItems,
+                  onChanged: (v) => setState(() => _mealType = v!),
+                ),
+                const SizedBox(height: 12),
+                // 时间
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                      '记录时间：${_recordTime.hour.toString().padLeft(2, '0')}:${_recordTime.minute.toString().padLeft(2, '0')}'),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: _pickTime,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.grey.shade400),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 备注
+                TextFormField(
+                  controller: _descController,
+                  decoration: const InputDecoration(
+                    labelText: '备注（可选）',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 食物明细
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('食物明细',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    TextButton.icon(
+                      onPressed: _addItem,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('添加食物'),
+                    ),
+                  ],
+                ),
+                ..._itemForms.asMap().entries.map(
+                      (e) => _FoodItemFormWidget(
+                        key: ValueKey(e.key),
+                        form: e.value,
+                        onRemove: _itemForms.length > 1
+                            ? () => _removeItem(e.key)
+                            : null,
+                      ),
+                    ),
+                const SizedBox(height: 16),
+                // 提交
+                Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: widget.controller.isSubmitting.value
+                          ? null
+                          : _submit,
+                      child: widget.controller.isSubmitting.value
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('保存'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime:
+          TimeOfDay(hour: _recordTime.hour, minute: _recordTime.minute),
+    );
+    if (picked != null) {
+      setState(() {
+        _recordTime = DateTime(
+          _recordTime.year,
+          _recordTime.month,
+          _recordTime.day,
+          picked.hour,
+          picked.minute,
+        );
+      });
+    }
+  }
+
+  void _addItem() {
+    setState(() => _itemForms.add(_FoodItemForm()));
+  }
+
+  void _removeItem(int index) {
+    setState(() {
+      _itemForms[index].dispose();
+      _itemForms.removeAt(index);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final items = _itemForms
+        .map((f) => f.toModel())
+        .whereType<FoodItemModel>()
+        .toList();
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请至少填写一种食物')),
+      );
+      return;
+    }
+    final ok = await widget.controller.createRecord(
+      mealType: _mealType,
+      recordTime: _recordTime,
+      sourceType: 'manual',
+      description:
+          _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+      items: items,
+    );
+    if (ok && mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('记录已保存')),
+      );
+    } else if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.controller.errorMessage.value)),
+      );
+    }
+  }
+}
+
+// ── 单个食物行表单数据 ─────────────────────────────────────────────────────
+
+class _FoodItemForm {
+  final nameCtrl = TextEditingController();
+  final weightCtrl = TextEditingController();
+  final caloriesCtrl = TextEditingController();
+  final proteinCtrl = TextEditingController();
+  final fatCtrl = TextEditingController();
+  final carbCtrl = TextEditingController();
+
+  void dispose() {
+    nameCtrl.dispose();
+    weightCtrl.dispose();
+    caloriesCtrl.dispose();
+    proteinCtrl.dispose();
+    fatCtrl.dispose();
+    carbCtrl.dispose();
+  }
+
+  FoodItemModel? toModel() {
+    final name = nameCtrl.text.trim();
+    final weight = double.tryParse(weightCtrl.text.trim());
+    final calories = double.tryParse(caloriesCtrl.text.trim());
+    if (name.isEmpty || weight == null || calories == null) return null;
+    return FoodItemModel(
+      foodName: name,
+      weightG: weight,
+      calories: calories,
+      proteinG: double.tryParse(proteinCtrl.text.trim()) ?? 0,
+      fatG: double.tryParse(fatCtrl.text.trim()) ?? 0,
+      carbohydrateG: double.tryParse(carbCtrl.text.trim()) ?? 0,
+    );
+  }
+}
+
+// ── 单个食物行表单 UI ──────────────────────────────────────────────────────
+
+class _FoodItemFormWidget extends StatelessWidget {
+  const _FoodItemFormWidget({
+    super.key,
+    required this.form,
+    this.onRemove,
+  });
+  final _FoodItemForm form;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: form.nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '食物名称*',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '请填写食物名称' : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: form.weightCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '重量(g)*',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) =>
+                        (double.tryParse(v ?? '') == null) ? '请填写重量' : null,
+                  ),
+                ),
+                if (onRemove != null)
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.red),
+                    onPressed: onRemove,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: form.caloriesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '热量(kcal)*',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) =>
+                        (double.tryParse(v ?? '') == null) ? '请填写热量' : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: form.proteinCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '蛋白质(g)',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: form.fatCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '脂肪(g)',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: form.carbCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '碳水(g)',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

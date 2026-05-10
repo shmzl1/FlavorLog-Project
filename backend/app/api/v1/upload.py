@@ -3,25 +3,23 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
+from app.schemas.response import StandardResponse, success_response
 from app.schemas.upload import UploadResponse
 from app.services.upload_service import UploadService
-from app.utils.response import success_response
 
 
 router = APIRouter()
 
 
-@router.post("/image", status_code=status.HTTP_200_OK)
-async def upload_image(
+@router.post("/image", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+def upload_image(
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        saved = await UploadService.save(
-            db, user_id=current_user.id, file=file, file_type="image", scene=scene
-        )
+        saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="image", scene=scene)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     data = UploadResponse(
@@ -32,21 +30,19 @@ async def upload_image(
         size_bytes=saved.size_bytes,
         scene=saved.scene,
         created_at=saved.created_at,
-    ).model_dump()
-    return success_response(data=data)
+    ).model_dump(mode="json")
+    return success_response(data=data, msg="图片上传成功")
 
 
-@router.post("/video", status_code=status.HTTP_200_OK)
-async def upload_video(
+@router.post("/video", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+def upload_video(
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        saved = await UploadService.save(
-            db, user_id=current_user.id, file=file, file_type="video", scene=scene
-        )
+        saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="video", scene=scene)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     data = UploadResponse(
@@ -57,21 +53,19 @@ async def upload_video(
         size_bytes=saved.size_bytes,
         scene=saved.scene,
         created_at=saved.created_at,
-    ).model_dump()
-    return success_response(data=data)
+    ).model_dump(mode="json")
+    return success_response(data=data, msg="视频上传成功")
 
 
-@router.post("/audio", status_code=status.HTTP_200_OK)
-async def upload_audio(
+@router.post("/audio", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+def upload_audio(
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        saved = await UploadService.save(
-            db, user_id=current_user.id, file=file, file_type="audio", scene=scene
-        )
+        saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="audio", scene=scene)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     data = UploadResponse(
@@ -82,5 +76,5 @@ async def upload_audio(
         size_bytes=saved.size_bytes,
         scene=saved.scene,
         created_at=saved.created_at,
-    ).model_dump()
-    return success_response(data=data)
+    ).model_dump(mode="json")
+    return success_response(data=data, msg="音频上传成功")

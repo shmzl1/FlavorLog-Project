@@ -83,3 +83,9 @@ desktop.ini
 # =========================
 *.log
 logs/
+
+# Local Codex / agent instructions
+AGENT.md
+AGENTS.md
+
+完成情况.md
