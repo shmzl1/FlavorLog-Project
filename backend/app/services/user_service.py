@@ -34,6 +34,16 @@ class UserService:
         return db.query(User).filter(User.email == email).first()
 
     @staticmethod
+    def get_user_by_username(db: Session, username: str) -> User | None:
+        return db.query(User).filter(User.username == username).first()
+
+    @staticmethod
+    def get_user_by_account(db: Session, account: str) -> User | None:
+        if "@" in account:
+            return UserService.get_user_by_email(db, email=account)
+        return UserService.get_user_by_username(db, username=account)
+
+    @staticmethod
     def create_user(db: Session, user_in: UserCreate) -> User:
         """
         执行用户注册的核心创建逻辑。
@@ -60,7 +70,10 @@ class UserService:
             username=user_in.username,
             email=user_in.email,
             password_hash=hashed_pwd,
-            #is_active=user_in.is_active
+            nickname=user_in.nickname,
+            diet_preference=[],
+            allergens=[],
+            profile_json={},
         )
         
         # 3. 将对象添加到当前会话
@@ -89,6 +102,15 @@ class UserService:
         if not pwd_hasher.verify_password(password, user.password_hash):
             return None
             
+        return user
+
+    @staticmethod
+    def authenticate_user_by_account(db: Session, account: str, password: str) -> User | None:
+        user = UserService.get_user_by_account(db, account=account)
+        if not user:
+            return None
+        if not pwd_hasher.verify_password(password, user.password_hash):
+            return None
         return user
     
     @staticmethod

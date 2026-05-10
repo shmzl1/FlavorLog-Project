@@ -1,5 +1,6 @@
 # backend/main.py
 
+import os
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -7,6 +8,7 @@ import uvicorn
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # 导入我们的全局配置和路由总线
 from app.core.config import settings
@@ -35,10 +37,15 @@ app = FastAPI(
     title=settings.APP_NAME,
     description="知味志 FlavorLog 后端接口文档。所有核心业务接口以 /api/v1 开头。",
     version=settings.APP_VERSION,
+    debug=settings.DEBUG,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_uploads_dir = os.path.join(_backend_dir, "uploads")
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 
 # ==========================================
 # 3. 跨域安全配置 (CORS)
@@ -46,7 +53,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # 优先使用 .env 中的配置，如果没有则允许所有 ("*")
-    allow_origins=[str(origin) for origin in settings.CORS_ALLOW_ORIGINS] if settings.CORS_ALLOW_ORIGINS else ["*"],
+    allow_origins=settings.get_cors_origins_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

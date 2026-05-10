@@ -27,6 +27,7 @@ class UserCreate(UserBase):
     我们特意将其与响应模型分离，确保密码只在接收时有效，绝不会被意外暴露给外部。
     """
     password: str
+    nickname: Optional[str] = None
 
 class UserResponse(UserBase):
     """

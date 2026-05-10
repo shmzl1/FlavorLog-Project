@@ -60,6 +60,23 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
     UPLOAD_DIR: str = "backend/uploads"
     MAX_IMAGE_SIZE_MB: int = 10
+    MAX_AUDIO_SIZE_MB: int = 30
+    MAX_VIDEO_SIZE_MB: int = 200
+
+    IMAGE_UPLOAD_DIR: str = "uploads/images"
+    AUDIO_UPLOAD_DIR: str = "uploads/audios"
+    VIDEO_UPLOAD_DIR: str = "uploads/videos"
+
+    LLM_PROVIDER: str = "mock"
+    LLM_API_KEY: str = ""
+    LLM_BASE_URL: str = ""
+    LLM_MODEL: str = "mock"
+
+    OCR_PROVIDER: str = "mock"
+    OCR_API_KEY: str = ""
+    OCR_TIMEOUT_SECONDS: int = 30
+
+    LLM_TIMEOUT_SECONDS: int = 60
 
     # Pydantic V2 配置：强制绑定刚才计算出的绝对路径
     model_config = SettingsConfigDict(
