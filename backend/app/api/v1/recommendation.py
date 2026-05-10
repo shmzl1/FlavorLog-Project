@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -20,8 +22,8 @@ router = APIRouter()
 @router.post("/recipes")
 def submit_recommendations(
     payload: RecommendationRecipeRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     task = RecommendationService.submit_recipe_recommendation(
         db, user_id=current_user.id, payload=payload
@@ -33,11 +35,11 @@ def submit_recommendations(
     )
 
 
-@router.get("/tasks/{task_id}")
+@router.get("/tasks/{task_id}", responses={404: {"description": "Not Found"}})
 def get_recommendation_task(
     task_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     task = RecommendationService.get_task(db, user_id=current_user.id, task_id=task_id)
     if not task:
@@ -51,11 +53,11 @@ def get_recommendation_task(
     )
 
 
-@router.post("/menu-scan")
+@router.post("/menu-scan", responses={400: {"description": "Bad Request"}})
 def menu_scan(
     payload: MenuScanRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     try:
         data = RecommendationService.menu_scan(db, user_id=current_user.id, payload=payload)
@@ -66,12 +68,12 @@ def menu_scan(
 
 @router.get("/history")
 def list_history(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     page: int = 1,
     page_size: int = 10,
     recipe_type: str | None = None,
     task_id: str | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     items, pagination = RecommendationService.list_saved_recipes(
         db,
@@ -88,11 +90,11 @@ def list_history(
     return success_response(data=data)
 
 
-@router.get("/recipes/{recipe_id}")
+@router.get("/recipes/{recipe_id}", responses={404: {"description": "Not Found"}})
 def get_recipe(
     recipe_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     rec = RecommendationService.get_saved_recipe(db, user_id=current_user.id, recipe_id=recipe_id)
     if not rec:
@@ -102,8 +104,8 @@ def get_recipe(
 
 @router.get("/dashboard")
 def dashboard(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     data = RecommendationService.get_dashboard(db, user_id=current_user.id)
     payload = {

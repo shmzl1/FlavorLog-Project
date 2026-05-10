@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -11,12 +13,17 @@ from app.services.upload_service import UploadService
 router = APIRouter()
 
 
-@router.post("/image", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+@router.post(
+    "/image",
+    response_model=StandardResponse[UploadResponse],
+    status_code=status.HTTP_200_OK,
+    responses={400: {"description": "Bad Request"}},
+)
 def upload_image(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     try:
         saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="image", scene=scene)
@@ -34,12 +41,17 @@ def upload_image(
     return success_response(data=data, msg="图片上传成功")
 
 
-@router.post("/video", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+@router.post(
+    "/video",
+    response_model=StandardResponse[UploadResponse],
+    status_code=status.HTTP_200_OK,
+    responses={400: {"description": "Bad Request"}},
+)
 def upload_video(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     try:
         saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="video", scene=scene)
@@ -57,12 +69,17 @@ def upload_video(
     return success_response(data=data, msg="视频上传成功")
 
 
-@router.post("/audio", response_model=StandardResponse[UploadResponse], status_code=status.HTTP_200_OK)
+@router.post(
+    "/audio",
+    response_model=StandardResponse[UploadResponse],
+    status_code=status.HTTP_200_OK,
+    responses={400: {"description": "Bad Request"}},
+)
 def upload_audio(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
     scene: str | None = Form(default=None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     try:
         saved = UploadService.save_file(db, user_id=current_user.id, file=file, file_type="audio", scene=scene)

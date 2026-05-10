@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -18,8 +20,8 @@ router = APIRouter()
 @router.post("", status_code=status.HTTP_200_OK)
 def submit_task(
     payload: FridgeRecipeTaskRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     task = FridgeRecipeService.submit_task(db, user_id=current_user.id, payload=payload)
     data = FridgeRecipeTaskSubmitData(
@@ -30,11 +32,11 @@ def submit_task(
     return success_response(data=data)
 
 
-@router.get("/{task_id}", status_code=status.HTTP_200_OK)
+@router.get("/{task_id}", status_code=status.HTTP_200_OK, responses={404: {"description": "Not Found"}})
 def get_task(
     task_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     task = FridgeRecipeService.get_task(db, user_id=current_user.id, task_id=task_id)
     if not task:

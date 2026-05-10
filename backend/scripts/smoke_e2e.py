@@ -54,6 +54,47 @@ def _pick_data(resp_json: dict) -> dict:
         return resp_json["data"]
     return {}
 
+def _request_ok(
+    s: requests.Session,
+    *,
+    method: str,
+    url: str,
+    timeout: float,
+    expected_status: tuple[int, ...] = (200,),
+    json: dict | None = None,
+    files: dict | None = None,
+    data: dict | None = None,
+) -> dict:
+    r = s.request(method, url, json=json, files=files, data=data, timeout=timeout)
+    if r.status_code not in expected_status:
+        _fail(f"{url} http={r.status_code} body={r.text[:500]}")
+    resp_json = r.json()
+    if resp_json.get("code") != 0:
+        _fail(f"{url} code!=0 body={resp_json}")
+    return resp_json
+
+
+def _poll_task(
+    s: requests.Session,
+    *,
+    url: str,
+    timeout: float,
+    ok_label: str,
+    max_tries: int = 10,
+    sleep_seconds: float = 0.3,
+) -> dict:
+    for _ in range(max_tries):
+        resp_json = _request_ok(s, method="GET", url=url, timeout=timeout)
+        status_ = _pick_data(resp_json).get("status")
+        if status_ == "success":
+            _ok(ok_label)
+            return resp_json
+        if status_ == "failed":
+            _fail(f"{url} failed body={resp_json}")
+        time.sleep(sleep_seconds)
+    _fail(f"{url} timeout waiting success")
+
+
 
 def main() -> None:
     base_url = os.getenv("SMOKE_BASE_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
@@ -62,7 +103,7 @@ def main() -> None:
     suffix = uuid4().hex[:8]
     username = f"smoke_{suffix}"
     email = f"smoke_{suffix}@example.com"
-    password = "123456"
+    password = os.getenv("SMOKE_PASSWORD") or f"P@{uuid4().hex[:10]}"
 
     _ok(f"Base URL = {base_url}")
 
@@ -74,33 +115,31 @@ def main() -> None:
         "password": password,
         "nickname": "smoke",
     }
-    r = s.post(f"{base_url}/auth/register", json=register_payload, timeout=timeout)
-    if r.status_code not in (200, 201):
-        _fail(f"register http={r.status_code} body={r.text[:500]}")
-    reg_json = r.json()
-    if reg_json.get("code") != 0:
-        _fail(f"register code!=0 body={reg_json}")
+    _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/auth/register",
+        json=register_payload,
+        timeout=timeout,
+        expected_status=(200, 201),
+    )
     _ok("auth/register")
 
     login_payload = {"account": email, "password": password}
-    r = s.post(f"{base_url}/auth/login", json=login_payload, timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"login http={r.status_code} body={r.text[:500]}")
-    login_json = r.json()
-    if login_json.get("code") != 0:
-        _fail(f"login code!=0 body={login_json}")
+    login_json = _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/auth/login",
+        json=login_payload,
+        timeout=timeout,
+    )
     token = _pick_data(login_json).get("access_token")
     if not token:
         _fail(f"login missing access_token body={login_json}")
     s.headers.update({"Authorization": f"Bearer {token}"})
     _ok("auth/login + token")
 
-    r = s.get(f"{base_url}/auth/me", timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"me http={r.status_code} body={r.text[:500]}")
-    me_json = r.json()
-    if me_json.get("code") != 0:
-        _fail(f"me code!=0 body={me_json}")
+    _request_ok(s, method="GET", url=f"{base_url}/auth/me", timeout=timeout)
     _ok("auth/me")
 
     tiny_png = bytes.fromhex(
@@ -109,12 +148,14 @@ def main() -> None:
     )
     files = {"file": ("menu.png", tiny_png, "image/png")}
     data = {"scene": "menu"}
-    r = s.post(f"{base_url}/uploads/image", files=files, data=data, timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"uploads/image http={r.status_code} body={r.text[:500]}")
-    up_json = r.json()
-    if up_json.get("code") != 0:
-        _fail(f"uploads/image code!=0 body={up_json}")
+    up_json = _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/uploads/image",
+        files=files,
+        data=data,
+        timeout=timeout,
+    )
     file_id = _pick_data(up_json).get("file_id")
     file_url = _pick_data(up_json).get("file_url") or ""
     if not file_id:
@@ -129,45 +170,37 @@ def main() -> None:
         "preferred_ingredients": ["鸡胸肉", "西兰花"],
         "max_calories": 600,
     }
-    r = s.post(f"{base_url}/recommendations/recipes", json=rec_payload, timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"recommendations/recipes http={r.status_code} body={r.text[:500]}")
-    submit_json = r.json()
-    if submit_json.get("code") != 0:
-        _fail(f"recommendations/recipes code!=0 body={submit_json}")
+    submit_json = _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/recommendations/recipes",
+        json=rec_payload,
+        timeout=timeout,
+    )
     task_id = _pick_data(submit_json).get("task_id")
     if not task_id:
         _fail(f"recommendations/recipes missing task_id body={submit_json}")
     _ok(f"recommendations/recipes task_id={task_id}")
 
-    for _ in range(10):
-        r = s.get(f"{base_url}/recommendations/tasks/{task_id}", timeout=timeout)
-        if r.status_code != 200:
-            _fail(f"recommendations/tasks http={r.status_code} body={r.text[:500]}")
-        task_json = r.json()
-        if task_json.get("code") != 0:
-            _fail(f"recommendations/tasks code!=0 body={task_json}")
-        status_ = _pick_data(task_json).get("status")
-        if status_ == "success":
-            _ok("recommendations/tasks success")
-            break
-        if status_ == "failed":
-            _fail(f"recommendations/tasks failed body={task_json}")
-        time.sleep(0.3)
-    else:
-        _fail("recommendations/tasks timeout waiting success")
+    _poll_task(
+        s,
+        url=f"{base_url}/recommendations/tasks/{task_id}",
+        timeout=timeout,
+        ok_label="recommendations/tasks success",
+    )
 
     ms_payload = {
         "file_id": file_id,
         "health_goal": "lose_fat",
         "avoid_ingredients": ["花生"],
     }
-    r = s.post(f"{base_url}/recommendations/menu-scan", json=ms_payload, timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"recommendations/menu-scan http={r.status_code} body={r.text[:500]}")
-    ms_json = r.json()
-    if ms_json.get("code") != 0:
-        _fail(f"recommendations/menu-scan code!=0 body={ms_json}")
+    _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/recommendations/menu-scan",
+        json=ms_payload,
+        timeout=timeout,
+    )
     _ok("recommendations/menu-scan")
 
     fridge_item_payload = {
@@ -177,12 +210,14 @@ def main() -> None:
         "unit": "piece",
         "expiration_date": "2026-05-10T00:00:00+08:00",
     }
-    r = s.post(f"{base_url}/fridge/items/", json=fridge_item_payload, timeout=timeout)
-    if r.status_code not in (200, 201):
-        _fail(f"fridge/items create http={r.status_code} body={r.text[:500]}")
-    item_json = r.json()
-    if item_json.get("code") != 0:
-        _fail(f"fridge/items create code!=0 body={item_json}")
+    _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/fridge/items/",
+        json=fridge_item_payload,
+        timeout=timeout,
+        expected_status=(200, 201),
+    )
     _ok("fridge/items create")
 
     fridge_task_payload = {
@@ -192,40 +227,31 @@ def main() -> None:
         "max_calories": 600,
         "use_expiring_first": True,
     }
-    r = s.post(f"{base_url}/fridge/recipe-tasks", json=fridge_task_payload, timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"fridge/recipe-tasks http={r.status_code} body={r.text[:500]}")
-    ft_json = r.json()
-    if ft_json.get("code") != 0:
-        _fail(f"fridge/recipe-tasks code!=0 body={ft_json}")
+    ft_json = _request_ok(
+        s,
+        method="POST",
+        url=f"{base_url}/fridge/recipe-tasks",
+        json=fridge_task_payload,
+        timeout=timeout,
+    )
     fridge_task_id = _pick_data(ft_json).get("task_id")
     if not fridge_task_id:
         _fail(f"fridge/recipe-tasks missing task_id body={ft_json}")
     _ok(f"fridge/recipe-tasks task_id={fridge_task_id}")
 
-    for _ in range(10):
-        r = s.get(f"{base_url}/fridge/recipe-tasks/{fridge_task_id}", timeout=timeout)
-        if r.status_code != 200:
-            _fail(f"fridge/recipe-tasks get http={r.status_code} body={r.text[:500]}")
-        gt_json = r.json()
-        if gt_json.get("code") != 0:
-            _fail(f"fridge/recipe-tasks get code!=0 body={gt_json}")
-        status_ = _pick_data(gt_json).get("status")
-        if status_ == "success":
-            _ok("fridge/recipe-tasks success")
-            break
-        if status_ == "failed":
-            _fail(f"fridge/recipe-tasks failed body={gt_json}")
-        time.sleep(0.3)
-    else:
-        _fail("fridge/recipe-tasks timeout waiting success")
+    _poll_task(
+        s,
+        url=f"{base_url}/fridge/recipe-tasks/{fridge_task_id}",
+        timeout=timeout,
+        ok_label="fridge/recipe-tasks success",
+    )
 
-    r = s.get(f"{base_url}/recommendations/history?page=1&page_size=10", timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"recommendations/history http={r.status_code} body={r.text[:500]}")
-    hist_json = r.json()
-    if hist_json.get("code") != 0:
-        _fail(f"recommendations/history code!=0 body={hist_json}")
+    hist_json = _request_ok(
+        s,
+        method="GET",
+        url=f"{base_url}/recommendations/history?page=1&page_size=10",
+        timeout=timeout,
+    )
     items = _pick_data(hist_json).get("items") or []
     if not items:
         _fail(f"recommendations/history empty body={hist_json}")
@@ -234,20 +260,20 @@ def main() -> None:
     recipe_id = items[0].get("id")
     if not recipe_id:
         _fail(f"recommendations/history missing id body={items[0]}")
-    r = s.get(f"{base_url}/recommendations/recipes/{recipe_id}", timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"recommendations/recipes/{recipe_id} http={r.status_code} body={r.text[:500]}")
-    detail_json = r.json()
-    if detail_json.get("code") != 0:
-        _fail(f"recommendations/recipes/{recipe_id} code!=0 body={detail_json}")
+    _request_ok(
+        s,
+        method="GET",
+        url=f"{base_url}/recommendations/recipes/{recipe_id}",
+        timeout=timeout,
+    )
     _ok("recommendations/recipes/{id}")
 
-    r = s.get(f"{base_url}/recommendations/dashboard", timeout=timeout)
-    if r.status_code != 200:
-        _fail(f"recommendations/dashboard http={r.status_code} body={r.text[:500]}")
-    dash_json = r.json()
-    if dash_json.get("code") != 0:
-        _fail(f"recommendations/dashboard code!=0 body={dash_json}")
+    _request_ok(
+        s,
+        method="GET",
+        url=f"{base_url}/recommendations/dashboard",
+        timeout=timeout,
+    )
     _ok("recommendations/dashboard")
 
     _cleanup_uploaded_file(file_url)

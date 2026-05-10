@@ -89,7 +89,7 @@ class LLMClient:
                 ]
             }
             return LLMResult(prompt_summary="mock:recommendations", output_json=out)
-        return self._not_implemented(prompt)
+        return self._not_implemented()
 
     def generate_fridge_recipe(
         self, payload: Dict[str, Any], fridge_items: List[Dict[str, Any]]
@@ -126,9 +126,9 @@ class LLMClient:
                 "score": 0.91,
             }
             return LLMResult(prompt_summary="mock:fridge_recipe", output_json=out)
-        return self._not_implemented(prompt)
+        return self._not_implemented()
 
-    def _not_implemented(self, prompt: str) -> LLMResult:
+    def _not_implemented(self) -> LLMResult:
         if not self.base_url:
             raise LLMError("LLM_BASE_URL 未配置")
         raise LLMError(f"LLM provider '{self.provider}' 未实现")
