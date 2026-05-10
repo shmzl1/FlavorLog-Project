@@ -1,6 +1,6 @@
 # backend/app/schemas/fridge.py
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -28,13 +28,11 @@ class FridgeItemUpdate(BaseModel):
     unit: Optional[str] = None
     expiration_date: Optional[datetime] = None
 
-# 💡 核心修改：将类名从 FridgeItemResponse 改为 FridgeItem 
-# 这样才能匹配 v1/fridge.py 中的 from app.schemas.fridge import FridgeItem
 class FridgeItem(FridgeItemBase):
     """返回给前端的食材格式"""
     id: int
     user_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    # 💡 优化：使用 Pydantic V2 的最新标准写法，替代旧版的 class Config
+    model_config = ConfigDict(from_attributes=True)

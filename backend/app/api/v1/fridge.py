@@ -11,7 +11,7 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.response import StandardResponse, success_response
 
-# 💡 修复点：现在可以安全地从我们刚才写的 Schema 文件里导入这两个类了
+# 💡 从 Schema 文件里导入这两个类
 from app.schemas.fridge import FridgeItem, FridgeItemCreate
 from app.services.fridge_service import fridge_service
 from app.services.video_scan_service import FoodDetector 
@@ -21,7 +21,7 @@ router = APIRouter()
 @router.get("/", response_model=StandardResponse[List[FridgeItem]])
 def get_fridge_items(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user), # 💡 统一改为这个
+    current_user: User = Depends(get_current_user),
 ):
     """获取用户冰箱里的所有食材"""
     items = fridge_service.get_user_items(db, user_id=current_user.id)
@@ -31,7 +31,7 @@ def get_fridge_items(
 async def scan_food_from_video(
     video: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user), # 💡 这里也要改
+    current_user: User = Depends(get_current_user),
 ):
     """接收前端视频 -> YOLO 裁剪食材 -> 自动存入冰箱"""
     print(f"========== 收到食材扫描请求: {video.filename} ==========")
@@ -39,7 +39,7 @@ async def scan_food_from_video(
         video_content = await video.read()
         print(f"[1/3] 视频读取成功，大小: {len(video_content) // 1024} KB")
         
-        # 将 YOLO 运算放入线程池
+        # 将 YOLO 运算放入线程池，防止阻塞 FastAPI 主事件循环
         food_images = await run_in_threadpool(FoodDetector.process_video_and_crop, video_content)
         
         if not food_images:
@@ -47,7 +47,7 @@ async def scan_food_from_video(
 
         new_items = []
         for idx, _ in enumerate(food_images):
-            # 💡 修复点：显式地传入 expiration_date=None
+            # 💡 显式地传入 expiration_date=None，匹配你的 FridgeItemCreate 模型
             item_in = FridgeItemCreate(
                 name=f"自动扫描食材_{idx+1}", 
                 category="其他",
