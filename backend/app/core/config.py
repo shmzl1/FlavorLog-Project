@@ -11,6 +11,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ENV_FILE_PATH = os.path.join(BASE_DIR, ".env")
 
+if os.environ.get("DEBUG", "").lower() not in {"", "true", "false", "1", "0", "yes", "no", "on", "off"}:
+    os.environ.pop("DEBUG", None)
+
 class EnvironmentError(Exception):
     """
     自定义环境异常类。
