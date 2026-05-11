@@ -1,60 +1,74 @@
-from datetime import datetime
-from app.schemas.food_record import FoodRecordCreate, FoodRecordItemCreate
+# backend/app/algorithms/llm/standardizer.py
 from typing import Dict, Any
+from app.schemas.food_record import FoodRecordCreate, FoodRecordItemCreate
 
 class RecordStandardizer:
     """
-    数据结构标准化类。
-    
-    【作用】
-    各大 AI 模型（例如 GPT-4V、YOLO 食材识别等）输出的数据格式往往是非标准化的 JSON。
-    此类负责将原始 AI 识别结果映射、清洗并转换为后端严格定义的 FoodRecordCreate 格式。
-    这保证了进入 Controller 和 Service 层的数据是100%合法和类型安全的。
+    【AI 识别结果标准化引擎】
+    作用：
+    担当“数据防线”的角色。负责将底层 YOLO 算法、语音抽取模块传来的非结构化或半结构化字典（Dict），
+    进行默认值兜底、数据类型强转、异常值过滤，最终输出严谨的 Pydantic Schema（FoodRecordCreate）。
+    防止算法层的脏数据污染业务数据库。
     """
+    def __init__(self):
+        # 默认一餐的基础热量（如果算法完全没识别出来时的兜底策略）
+        self.default_weight_g = 100.0
 
-    @staticmethod
-    def ai_result_to_food_record(raw_ai_data: Dict[str, Any]) -> FoodRecordCreate:
+    def ai_result_to_food_record(self, raw_data: Dict[str, Any]) -> FoodRecordCreate:
         """
-        【作用】将多模态大模型的识别字典，转换为 FastAPI 兼容的 Pydantic 模型。
+        【数据清洗与 Schema 映射】
+        参数:
+            raw_data: 包含检测框、类别、初步卡路里的原始字典
+        返回:
+            严格符合后端接口规范的 FoodRecordCreate 对象
         """
-        # 1. 提取或设置基础信息
-        meal_type = raw_ai_data.get("meal_type", "snack")
-        description = raw_ai_data.get("summary", "AI自动识别生成的饮食记录")
-        record_time = datetime.now() # 或者从 raw_ai_data 获取拍摄时间
-
-        # 2. 遍历并标准化所有的食材项目
-        standardized_items = []
-        raw_items = raw_ai_data.get("foods", [])
+        items = []
+        raw_foods = raw_data.get("foods", [])
         
-        for item in raw_items:
-            # 数据清洗与兜底处理
-            weight = float(item.get("weight_g", 0))
-            calories = float(item.get("calories", 0))
+        # 1. 提取所有识别到的食物单项
+        for food in raw_foods:
+            # 安全获取基础属性
+            name = food.get("name", "未知食物")
+            confidence = float(food.get("confidence", 0.0))
             
-            standardized_item = FoodRecordItemCreate(
-                food_name=item.get("name", "未知食物"),
-                weight_g=weight if weight > 0 else None,
-                calories=calories,
-                protein_g=float(item.get("protein", 0)),
-                fat_g=float(item.get("fat", 0)),
-                carbohydrate_g=float(item.get("carbs", 0)),
-                confidence=float(item.get("ai_confidence", 0.8)),
-                meta_json={"bbox": item.get("bbox", [])}
-            )
-            standardized_items.append(standardized_item)
+            # 如果置信度过低，直接舍弃，防止误识别录入（如置信度 < 0.3）
+            if confidence < 0.3:
+                continue
 
-        # 3. 组装父级记录
-        food_record = FoodRecordCreate(
-            meal_type=meal_type,
-            record_time=record_time,
-            source_type="ai_vision",  # 明确标记来源为 AI 视觉
-            description=description,
-            total_calories=sum(i.calories for i in standardized_items if i.calories),
-            total_protein_g=sum(i.protein_g for i in standardized_items if i.protein_g),
-            total_fat_g=sum(i.fat_g for i in standardized_items if i.fat_g),
-            total_carbohydrate_g=sum(i.carbohydrate_g for i in standardized_items if i.carbohydrate_g),
-            raw_result_json=raw_ai_data, # 保留原始 JSON 以便日后回溯分析
-            items=standardized_items
+            # 安全转换数值型数据，带有兜底机制
+            weight = food.get("weight_g")
+            weight_g = float(weight) if weight is not None else self.default_weight_g
+            
+            # 组装子项 Schema
+            item = FoodRecordItemCreate(
+                food_name=name,
+                weight_g=weight_g,
+                calories=float(food.get("calories", 0.0)),
+                protein_g=float(food.get("protein_g", 0.0)),
+                fat_g=float(food.get("fat_g", 0.0)),
+                carbohydrate_g=float(food.get("carbohydrate_g", 0.0)),
+                confidence=confidence,
+                meta_json={"raw_bbox": food.get("box", [])} # 保留原始框坐标以便前端高亮显示
+            )
+            items.append(item)
+            
+        # 2. 聚合总计数值 (计算这一顿饭的总摄入)
+        total_cal = sum(item.calories for item in items if item.calories)
+        total_pro = sum(item.protein_g for item in items if item.protein_g)
+        total_fat = sum(item.fat_g for item in items if item.fat_g)
+        total_carb = sum(item.carbohydrate_g for item in items if item.carbohydrate_g)
+
+        # 3. 组装主表 Schema
+        record_create = FoodRecordCreate(
+            meal_type="snack",          # 默认加餐，后续可根据上传时间(早中晚)推断
+            source_type="video_ai",     # 标记为视频AI生成
+            description="AI自动生成的饮食记录",
+            total_calories=total_cal,
+            total_protein_g=total_pro,
+            total_fat_g=total_fat,
+            total_carbohydrate_g=total_carb,
+            raw_result_json=raw_data,
+            items=items
         )
 
-        return food_record
+        return record_create

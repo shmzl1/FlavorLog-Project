@@ -1,32 +1,25 @@
 # backend/app/services/food_record_service.py
 
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.models.food_record import FoodRecord, FoodRecordItem
+from app.models.fridge_item import FridgeItem
 from app.schemas.food_record import FoodRecordCreate, FoodRecordUpdate
 
 class FoodRecordService:
 
     @staticmethod
     def create_record(db: Session, record_in: FoodRecordCreate, user_id: int) -> FoodRecord:
-        """【增】创建单条饮食记录 (包含多条明细的嵌套写入)"""
-        
-        # 1. 把 Pydantic 对象转为字典
+        """新增单条饮食记录"""
         record_data = record_in.model_dump()
-        
-        # 2. 把子表的数据 (items) 从主表数据中抽离出来
         items_data = record_data.pop("items", [])
         
-        # 3. 创建主表 ORM 对象
         db_record = FoodRecord(**record_data, user_id=user_id)
         
-        # 4. 循环创建子表 ORM 对象，并直接挂载到主表的 .items 关系列表上
-        # SQLAlchemy 会自动处理它们之间的 ID 外键关联！
         for item_data in items_data:
             db_item = FoodRecordItem(**item_data)
             db_record.items.append(db_item)
             
-        # 5. 提交事务 (主表和所有子表将作为一个整体写入数据库)
         db.add(db_record)
         db.commit()
         db.refresh(db_record)
@@ -35,11 +28,9 @@ class FoodRecordService:
 
     @staticmethod
     def batch_create_records(db: Session, records_in: List[FoodRecordCreate], user_id: int) -> List[FoodRecord]:
-        """
-        【增-批量】批量创建多条饮食记录 (专为视频极速录入、AI多帧识别场景设计)
-        优势：只开启一次事务，将视频分析出的所有片段记录一次性打入数据库，性能极高。
-        """
+        """批量创建饮食记录，并联动扣减赛博冰箱库存"""
         db_records = []
+        consumed_foods = {}
         
         for record_in in records_in:
             record_data = record_in.model_dump()
@@ -50,15 +41,49 @@ class FoodRecordService:
             for item_data in items_data:
                 db_item = FoodRecordItem(**item_data)
                 db_record.items.append(db_item)
+                
+                food_name = item_data.get("food_name")
+                weight = item_data.get("weight_g")
+                
+                if food_name:
+                    safe_weight = float(weight) if weight is not None else 100.0
+                    consumed_foods[food_name] = consumed_foods.get(food_name, 0.0) + safe_weight
             
             db_records.append(db_record)
             
-        # 批量添加到会话
         db.add_all(db_records)
-        # 一次性提交全部事务
+        
+        # ==========================================
+        # 💡 核心修复：使用 getattr 和 setattr 完美绕过 Pylance 类型检查警告
+        # ==========================================
+        for food_name, consumed_weight in consumed_foods.items():
+            fridge_items = db.query(FridgeItem).filter(
+                FridgeItem.user_id == user_id,
+                FridgeItem.name.ilike(f"%{food_name}%"),
+                FridgeItem.quantity > 0  
+            ).order_by(FridgeItem.expiration_date.asc()).all()  
+            
+            remaining_to_deduct = consumed_weight
+            
+            for f_item in fridge_items:
+                if remaining_to_deduct <= 0:
+                    break
+                    
+                # 💡 取值：安全地取为 float 类型，红线立刻消失
+                current_qty = float(getattr(f_item, 'quantity', 0.0))
+                
+                if current_qty >= remaining_to_deduct:  
+                    # 💡 赋值：使用 setattr 绕过 Pylance 的不可赋值警告
+                    setattr(f_item, 'quantity', current_qty - remaining_to_deduct)
+                    remaining_to_deduct = 0.0
+                else:
+                    remaining_to_deduct -= current_qty
+                    setattr(f_item, 'quantity', 0.0)
+                    
+                db.add(f_item)
+        
         db.commit()
         
-        # 刷新所有记录以获取数据库自动生成的自增 ID
         for record in db_records:
             db.refresh(record)
             
@@ -66,28 +91,20 @@ class FoodRecordService:
 
     @staticmethod
     def get_records_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[FoodRecord]:
-        """【查】获取列表"""
-        return db.query(FoodRecord)\
-                 .filter(FoodRecord.user_id == user_id)\
-                 .order_by(FoodRecord.record_time.desc())\
-                 .offset(skip).limit(limit).all()
+        """查询饮食记录"""
+        return db.query(FoodRecord).filter(FoodRecord.user_id == user_id).order_by(FoodRecord.record_time.desc()).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_record_by_id(db: Session, record_id: int, user_id: int) -> FoodRecord | None:
-        """【查】单条记录"""
-        return db.query(FoodRecord)\
-                 .filter(FoodRecord.id == record_id, FoodRecord.user_id == user_id)\
-                 .first()
+    def get_record_by_id(db: Session, record_id: int, user_id: int) -> Optional[FoodRecord]:
+        """单条查询辅助"""
+        return db.query(FoodRecord).filter(FoodRecord.id == record_id, FoodRecord.user_id == user_id).first()
 
     @staticmethod
     def update_record(db: Session, db_record: FoodRecord, record_in: FoodRecordUpdate) -> FoodRecord:
-        """
-        【改】修改记录的主表信息。
-        注意：通常我们只修改主表的备注、餐别等。
-        如果需要修改子表（具体的食物明细），业务上一般是通过增加专门的增删子表接口来实现。
-        """
-        update_data = record_in.model_dump(exclude_unset=True) # 只提取前端传了值的字段
+        """修改饮食记录"""
+        update_data = record_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
+            # 这里原本用的就是 setattr，所以不报错，这也印证了我们的修复方案！
             setattr(db_record, field, value)
         
         db.add(db_record)
@@ -97,11 +114,7 @@ class FoodRecordService:
 
     @staticmethod
     def delete_record(db: Session, db_record: FoodRecord) -> FoodRecord:
-        """
-        【删】删除记录。
-        得益于我们在 models 里配置了 cascade="all, delete-orphan"，
-        只要删除了这顿饭，里面所有的食物明细都会被数据库自动清理得干干净净！
-        """
+        """删除饮食记录"""
         db.delete(db_record)
         db.commit()
         return db_record

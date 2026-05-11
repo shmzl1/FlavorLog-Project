@@ -15,8 +15,7 @@ from app.schemas.response import StandardResponse, success_response
 from app.schemas.food_record import (
     FoodRecordCreate, 
     FoodRecordUpdate, 
-    FoodRecordResponse,
-    PhotoRecognitionRequest  # 记得在 schema 文件里定义这个类
+    FoodRecordResponse
 )
 from app.services.food_record_service import FoodRecordService
 
@@ -82,34 +81,3 @@ def delete_food_record(
     
     deleted_record = FoodRecordService.delete_record(db, db_record=db_record)
     return success_response(data=deleted_record, msg="记录已成功删除")
-
-# ==========================================
-# 5. 【AI Mock】图片识别接口 (你的 KPI 关键项)
-# ==========================================
-@router.post("/photo-recognition", response_model=StandardResponse)
-def mock_photo_recognition(
-    req: PhotoRecognitionRequest,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    【AI 识别】图片识别生成饮食记录草稿 (阶段一 Mock)
-    """
-    # 严格按照《接口文档.md》8.6 章节的结构返回数据
-    mock_data = {
-        "draft_id": "draft_001",
-        "source_type": "photo",
-        "items": [
-            {
-                "food_name": "番茄炒蛋",
-                "weight_g": 200,
-                "calories": 210,
-                "protein_g": 12,
-                "fat_g": 14,
-                "carbohydrate_g": 8,
-                "confidence": 0.82
-            }
-        ],
-        "need_user_confirm": True
-    }
-    
-    return success_response(data=mock_data, msg="图片识别成功(Mock)")

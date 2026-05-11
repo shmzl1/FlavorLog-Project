@@ -34,10 +34,9 @@ api_router.include_router(food_records_compat.router, prefix="/food_records", ta
 api_router.include_router(recognition.router, prefix="/recognition", tags=["AI Recognition (AI识别服务)"])
 
 api_router.include_router(health.router, prefix="/health/feedbacks", tags=["Health Feedbacks (健康反馈)"])
-api_router.include_router(health.router, prefix="/health", tags=["Health (兼容)"])
+api_router.include_router(health.router, prefix="/health", tags=["Health (健康反馈)"])
 
 api_router.include_router(upload.router, prefix="/uploads", tags=["Uploads (文件上传)"])
 
 api_router.include_router(recommendation.router, prefix="/recommendations", tags=["Recommendations (推荐)"])
-
 api_router.include_router(community.router, prefix="/community", tags=["Community (社区模块)"])
