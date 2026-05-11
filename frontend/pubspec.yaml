@@ -1,0 +1,55 @@
+name: flavorlog
+description: 知味志 FlavorLog - AI 多模态饮食管理 App
+publish_to: "none"
+
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # 状态管理与路由
+  get: ^4.6.6
+
+  # 网络请求
+  dio: ^5.7.0
+
+  # 本地存储
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # 图片、相机、权限
+  image_picker: ^1.1.2
+  camera: ^0.11.0+2
+  permission_handler: ^11.3.1
+
+  # WebSocket
+  web_socket_channel: ^3.0.1
+
+  # 工具
+  intl: ^0.20.1
+  uuid: ^4.5.1
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  json_serializable: ^6.9.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
