@@ -45,7 +45,7 @@ async def get_posts(
 ):
     """【社区】获取社区动态列表"""
     # 构造唯一的缓存 Key
-    cache_key = f"cache:posts:u_{current_user.id}:s_{skip}:l_{limit}"
+    cache_key = f"cache:posts:global:s_{skip}:l_{limit}"
     
     try:
         # 1. 尝试从缓存获取

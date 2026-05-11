@@ -1,7 +1,7 @@
+# backend/app/services/video_scan_service.py
 import cv2
 import numpy as np
 import os
-import tempfile
 import traceback
 from typing import List
 
@@ -20,7 +20,7 @@ class FoodDetector:
                 from ultralytics import YOLO
                 
                 # 💡 核心修复：直接传文件名，Ultralytics 会自动在当前目录寻找，找不到会自动下载官方权重
-                cls._model = YOLO("yolov8n.pt")
+                cls._model = YOLO("models/yolov8n.pt")
                 print("✅ YOLO 模型加载成功！")
             except Exception as e:
                 print(f"❌ 初始化 YOLO 失败: {e}")
@@ -28,9 +28,15 @@ class FoodDetector:
         return cls._model
 
     @classmethod
-    def process_video_and_crop(cls, video_bytes: bytes) -> List[bytes]:
+    def process_video_and_crop(cls, video_path: str) -> List[bytes]:
         """
         处理视频，截取食材图片
+        
+        参数:
+            video_path (str): 本地暂存的视频物理路径
+            
+        返回:
+            List[bytes]: 裁剪好的食材图片二进制列表，供大模型识别
         """
         # 1. 唤醒模型
         try:
@@ -39,40 +45,33 @@ class FoodDetector:
             raise e
 
         cropped_images = []
-        tmp_path = ""
         cap = None
         
         try:
-            # 2. 安全写入临时文件 (delete=False 是解决 Windows 崩溃的关键！)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                tmp.write(video_bytes)
-                tmp_path = tmp.name
-
-            # 3. 使用 OpenCV 读取
-            cap = cv2.VideoCapture(tmp_path)
+            # 2. 直接使用 OpenCV 读取传进来的视频路径
+            cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
-                raise ValueError("OpenCV 无法读取视频文件，视频可能损坏或格式不支持")
+                raise ValueError(f"无法打开视频文件进行处理: {video_path}")
 
             frame_count = 0
-            # 4. 开始抽帧
-            while cap.isOpened():
+            
+            # 3. 逐帧检测
+            while True:
                 ret, frame = cap.read()
-                if not ret: 
+                if not ret:
                     break
-                
-                # 每隔 15 帧处理一次，减轻 CPU 压力，防止卡死
+                    
+                # 每隔 15 帧检测一次 (0.5秒)
                 if frame_count % 15 == 0:
-                    results = model(frame, verbose=False)[0]
+                    # 4. 运行 YOLOv8，降低置信度阈值到 0.25 提高召回率
+                    # classes=range(39, 61) 代表 COCO 中的食物类 (如 bottle, cup, fork, bowl, banana, apple, sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake)
+                    results = model(frame, conf=0.25, classes=list(range(39, 61)), verbose=False)
                     
-                    # 💡 核心修复：必须使用 .item() 将 PyTorch Tensor 转换为纯 Python 数值进行比较
-                    food_boxes = [
-                        b for b in results.boxes 
-                        if int(b.cls.item()) in range(39, 61) and float(b.conf.item()) > 0.4
-                    ]
-                    
-                    if food_boxes:
-                        # 获取置信度最高的框
-                        best = max(food_boxes, key=lambda b: float(b.conf.item()))
+                    if len(results) > 0 and len(results[0].boxes) > 0:
+                        # 获取置信度最高的一个框
+                        boxes = results[0].boxes
+                        best_idx = int(boxes.conf.argmax())
+                        best = boxes[best_idx]
                         
                         # 💡 核心修复：使用 .tolist() 安全地解析坐标数组
                         x1, y1, x2, y2 = map(int, best.xyxy[0].tolist())
@@ -92,7 +91,7 @@ class FoodDetector:
                 
                 frame_count += 1
                 
-                # 最多取 5 张图片就结束，防止处理时间过长
+                # 最多取 5 张图片就结束，防止处理时间过长，并且节省大模型 Token
                 if len(cropped_images) >= 5: 
                     break
                     
@@ -101,13 +100,9 @@ class FoodDetector:
             raise RuntimeError(f"处理视频时出错: {str(e)}")
             
         finally:
-            # 6. 【最关键的一步】无论成功与否，必须释放内存并删除临时文件
+            # 5. 【释放内存】直接 release 即可。
+            # 不需要在这里删文件了，文件的生命周期交由上层 API (fridge.py) 在 finally 中去统一控制和删除。
             if cap is not None:
                 cap.release()
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception as e:
-                    print(f"⚠️ 临时文件清理失败，但不影响主流程: {e}")
-                    
+                
         return cropped_images
