@@ -38,3 +38,7 @@ class FridgeItem(FridgeItemBase):
 
     class Config:
         from_attributes = True
+
+
+class FridgeItemResponse(FridgeItem):
+    pass

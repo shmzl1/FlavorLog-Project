@@ -229,10 +229,14 @@ class RecommendationService:
 
         rel_path = file_url.lstrip("/").replace("/", os.sep)
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        abs_path = os.path.join(backend_root, rel_path)
-        if not os.path.exists(abs_path):
-            raise ValueError("文件不存在")
-        return file_url, abs_path
+        candidates = [
+            os.path.join(backend_root, rel_path),
+            os.path.join(os.path.abspath(os.path.join(backend_root, "..")), rel_path),
+        ]
+        for abs_path in candidates:
+            if os.path.exists(abs_path):
+                return file_url, abs_path
+        raise ValueError("文件不存在")
 
     @staticmethod
     def _score_menu_item(

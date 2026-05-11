@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.fridge import FridgeItemCreate, FridgeItemResponse, FridgeItemUpdate
+from app.schemas.fridge import FridgeItem, FridgeItemCreate, FridgeItemUpdate
 from app.services.fridge_service import FridgeService
 from app.utils.response import success_response
 
@@ -20,7 +20,7 @@ def add_item(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     item = FridgeService.create_item(db, item_in, user_id=current_user.id)
-    return success_response(data=FridgeItemResponse.model_validate(item).model_dump())
+    return success_response(data=FridgeItem.model_validate(item).model_dump())
 
 
 @router.get("/")
@@ -31,7 +31,7 @@ def list_items(
     limit: int = 100,
 ):
     items = FridgeService.get_items_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
-    data = [FridgeItemResponse.model_validate(x).model_dump() for x in items]
+    data = [FridgeItem.model_validate(x).model_dump() for x in items]
     return success_response(data=data)
 
 
@@ -46,7 +46,7 @@ def update_item(
     if not db_item:
         raise HTTPException(status_code=404, detail="未找到该食材，或无权操作")
     updated = FridgeService.update_item(db, db_item=db_item, item_in=item_in)
-    return success_response(data=FridgeItemResponse.model_validate(updated).model_dump())
+    return success_response(data=FridgeItem.model_validate(updated).model_dump())
 
 
 @router.delete("/{item_id}", responses={404: {"description": "Not Found"}})
@@ -59,4 +59,4 @@ def delete_item(
     if not db_item:
         raise HTTPException(status_code=404, detail="未找到该食材，或无权操作")
     deleted = FridgeService.delete_item(db, db_item=db_item)
-    return success_response(data=FridgeItemResponse.model_validate(deleted).model_dump())
+    return success_response(data=FridgeItem.model_validate(deleted).model_dump())

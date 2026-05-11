@@ -51,13 +51,17 @@ class UploadService:
     ) -> UploadFileModel:
         rel_dir = UploadService.get_upload_dir(file_type)
 
-        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         abs_dir = os.path.join(backend_root, rel_dir)
         UploadService._ensure_dir(abs_dir)
 
         name = UploadService._new_filename(file.filename or file_type)
         abs_path = os.path.join(abs_dir, name)
 
+        try:
+            file.file.seek(0)
+        except Exception:
+            pass
         with open(abs_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
