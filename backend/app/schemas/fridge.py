@@ -34,5 +34,8 @@ class FridgeItem(FridgeItemBase):
     user_id: int
     created_at: datetime
 
-    # 💡 优化：使用 Pydantic V2 的最新标准写法，替代旧版的 class Config
     model_config = ConfigDict(from_attributes=True)
+
+
+class FridgeItemResponse(FridgeItem):
+    pass

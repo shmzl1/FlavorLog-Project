@@ -1,20 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
 from app.core.security import token_generator
 from app.models.user import User
+from app.schemas.auth import AuthLoginRequest
 from app.schemas.response import StandardResponse, success_response
 from app.schemas.user import UserCreate, UserResponse
 from app.services.user_service import UserService
 
 router = APIRouter()
-
-
-class AuthLoginRequest(BaseModel):
-    account: str
-    password: str
 
 
 def _auth_payload(user: User) -> dict:

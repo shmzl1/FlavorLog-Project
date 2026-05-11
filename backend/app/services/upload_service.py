@@ -1,66 +1,93 @@
-# backend/app/services/upload_service.py
-
 import os
-import uuid
-import shutil
 from datetime import datetime
+import shutil
+from uuid import uuid4
+
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.models.upload_file import UploadFileModel
+from app.core.config import settings
+from app.models.upload import UploadFile as UploadFileModel
+
 
 class UploadService:
-    # 💡 升级点：根据文件类型，动态决定存到哪个文件夹
+    @staticmethod
+    def _ensure_dir(path: str) -> None:
+        os.makedirs(path, exist_ok=True)
+
+    @staticmethod
+    def _safe_ext(filename: str) -> str:
+        _, ext = os.path.splitext(filename or "")
+        ext = ext.lower().strip()
+        if ext and len(ext) <= 10:
+            return ext
+        return ""
+
+    @staticmethod
+    def _new_filename(original: str) -> str:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext = UploadService._safe_ext(original)
+        return f"{ts}_{uuid4().hex[:10]}{ext}"
+
     @staticmethod
     def get_upload_dir(file_type: str) -> str:
+        file_type = file_type.lower()
+        if file_type == "image":
+            return settings.IMAGE_UPLOAD_DIR
         if file_type == "video":
-            return "uploads/videos"
-        elif file_type == "audio":
-            return "uploads/audios"
-        return "uploads/images" # 默认图片
+            return settings.VIDEO_UPLOAD_DIR
+        if file_type == "audio":
+            return settings.AUDIO_UPLOAD_DIR
+        raise ValueError("unsupported file_type")
 
     @staticmethod
-    def save_file(db: Session, file: UploadFile, user_id: int, file_type: str = "image", scene: str = "default") -> UploadFileModel:
-        """
-        保存文件到硬盘，并记录到数据库。
-        支持 image, video, audio
-        """
-        # 1. 动态获取目标文件夹并确保存在
-        target_dir = UploadService.get_upload_dir(file_type)
-        os.makedirs(target_dir, exist_ok=True)
+    def save_file(
+        db: Session,
+        *,
+        user_id: int,
+        file: UploadFile,
+        file_type: str,
+        scene: str | None,
+    ) -> UploadFileModel:
+        rel_dir = UploadService.get_upload_dir(file_type)
 
-        # 2. 安全提取文件名和后缀名
-        safe_filename = file.filename or f"unknown.{file_type}"
-        file_extension = safe_filename.split(".")[-1] if "." in safe_filename else "bin"
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        abs_dir = os.path.join(backend_root, rel_dir)
+        UploadService._ensure_dir(abs_dir)
 
-        # 3. 生成唯一文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        unique_filename = f"{timestamp}_{uuid.uuid4().hex}.{file_extension}"
-        
-        # 4. 拼接物理路径
-        file_path = os.path.join(target_dir, unique_filename)
+        name = UploadService._new_filename(file.filename or file_type)
+        abs_path = os.path.join(abs_dir, name)
 
-        # 5. 存入硬盘
-        with open(file_path, "wb") as buffer:
+        try:
+            file.file.seek(0)
+        except Exception:
+            pass
+        with open(abs_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
-        # 6. 计算大小
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0)
 
-        # 7. 写入数据库
-        db_file = UploadFileModel(
+        size_bytes = os.path.getsize(abs_path)
+
+        rel_dir_norm = rel_dir.strip("/").replace("\\", "/")
+        file_url = f"/{rel_dir_norm}/{name}"
+        db_obj = UploadFileModel(
             user_id=user_id,
-            file_name=safe_filename,
-            file_url=f"/{file_path}".replace("\\", "/"), # 修复 Windows 斜杠
-            file_type=file_type, # 💡 动态记录是图片还是视频
+            file_name=name,
+            file_url=file_url,
+            file_type=file_type.lower(),
             mime_type=file.content_type,
-            size_bytes=file_size,
-            scene=scene
+            size_bytes=size_bytes,
+            scene=scene,
+            meta_json={},
         )
-        db.add(db_file)
+        db.add(db_obj)
         db.commit()
-        db.refresh(db_file)
+        db.refresh(db_obj)
+        return db_obj
 
-        return db_file
+    @staticmethod
+    def get_by_id(db: Session, *, user_id: int, file_id: int) -> UploadFileModel | None:
+        return (
+            db.query(UploadFileModel)
+            .filter(UploadFileModel.id == file_id, UploadFileModel.user_id == user_id)
+            .first()
+        )

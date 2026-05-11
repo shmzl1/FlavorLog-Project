@@ -36,9 +36,9 @@ class User(Base):
     
     # 个性化 AI 推荐的核心权重字段
     health_goal: Mapped[Optional[str]] = mapped_column(String(50)) # 例如: 减脂、增肌
-    diet_preference: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]') # 饮食偏好
-    allergens: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]') # 过敏原[cite: 2]
-    profile_json: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}')
+    diet_preference: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]', nullable=False) # 饮食偏好
+    allergens: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]', nullable=False) # 过敏原[cite: 2]
+    profile_json: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}', nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

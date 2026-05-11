@@ -1,7 +1,7 @@
 # backend/main.py
 
 import os
-import asyncio # 💡 引入 asyncio
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -10,8 +10,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
-# 💡 引入生命周期管理、Redis 客户端和后台任务
 from contextlib import asynccontextmanager
 from app.core.redis import redis_client
 from app.core.tasks import sync_likes_to_db  # 💡 导入“扫地僧”任务
@@ -66,30 +64,30 @@ app = FastAPI(
     title=settings.APP_NAME,
     description="知味志 FlavorLog 后端接口文档。所有核心业务接口以 /api/v1 开头。",
     version=settings.APP_VERSION,
+    debug=settings.DEBUG,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     lifespan=lifespan # 💡 挂载生命周期
 )
 
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_uploads_dir = os.path.join(_backend_dir, "uploads")
+os.makedirs(os.path.join(_uploads_dir, "images"), exist_ok=True)
+os.makedirs(os.path.join(_uploads_dir, "videos"), exist_ok=True)
+os.makedirs(os.path.join(_uploads_dir, "audios"), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
 # ==========================================
 # 4. 跨域安全配置 (CORS)
 # ==========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.CORS_ALLOW_ORIGINS] if settings.CORS_ALLOW_ORIGINS else ["*"],
+    allow_origins=settings.get_cors_origins_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ==========================================
-# 5. 静态资源映射
-# ==========================================
-os.makedirs("uploads/images", exist_ok=True)
-os.makedirs("uploads/videos", exist_ok=True)
-os.makedirs("uploads/audios", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 # ==========================================
