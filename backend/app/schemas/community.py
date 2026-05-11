@@ -1,6 +1,6 @@
 # backend/app/schemas/community.py
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -57,3 +57,20 @@ class LikeResponse(BaseModel):
     post_id: int
     is_liked: bool
     like_count: int
+
+
+class TasteBuddyMatchRequest(BaseModel):
+    top_k: int = Field(5, ge=1, le=20)
+    prefer_same_goal: bool = True
+
+
+class TasteBuddyItem(BaseModel):
+    user_id: int
+    nickname: str
+    avatar_url: Optional[str] = None
+    similarity: float
+    common_tags: List[str] = []
+
+
+class TasteBuddyMatchResponse(BaseModel):
+    matches: List[TasteBuddyItem]
