@@ -19,7 +19,8 @@ def get_db():
 
 # 2. 声明 OAuth2 的 Token 获取机制
 # tokenUrl 告诉 Swagger UI 去哪个接口获取 Token 才能出现那个绿色的 Authorize 锁头按钮
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/users/login")
+# 注意：/auth/login 是前端 JSON 登录接口；/auth/token 是 Swagger OAuth2 表单登录接口
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/auth/token")
 
 def get_current_user(
     db: Session = Depends(get_db),
@@ -38,19 +39,28 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # 使用你 .env 里的私钥解密 Token
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        
-        # 提取我们在 security.py 里塞进去的 subject (用户 ID)
+        # 使用 .env 里的密钥解密 Token
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+
+        # 提取 security.py 里写入的 subject，也就是用户 ID
         user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-            
+
+        try:
+            user_id_int = int(user_id)
+        except (TypeError, ValueError):
+            raise credentials_exception
+
     except JWTError:
         raise credentials_exception
 
     # 拿着解析出来的 ID 去数据库里查有没有这个人
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == user_id_int).first()
     if user is None:
         raise credentials_exception
 

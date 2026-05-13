@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Generic, TypeVar, Optional, Any
 from uuid import uuid4
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 
 # 定义一个泛型变量 T，代表将来要装入 data 里的任意类型格式
 T = TypeVar("T")
@@ -21,7 +21,7 @@ class StandardResponse(BaseModel, Generic[T]):
 
 
 class ErrorResponse(StandardResponse[Any]):
-    errors: Optional[list[dict[str, Any]]] = None
+    errors: list[dict[str, Any]] = Field(default_factory=list)
 
 def success_response(data: Any = None, msg: str = "success") -> StandardResponse:
     """快捷生成成功响应的工具函数"""
@@ -44,7 +44,7 @@ def error_response(
         code=code,
         message=msg,
         data=data,
-        errors=errors,
+        errors=errors or [],
         request_id=str(uuid4()),
         timestamp=datetime.now(timezone.utc).isoformat(),
     )

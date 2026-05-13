@@ -7,9 +7,14 @@ from typing import Any
 from uuid import uuid4
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+from app.schemas.response import error_response
+from app.utils.logger import logger
 from contextlib import asynccontextmanager
 from app.core.redis import redis_client
 from app.core.tasks import sync_likes_to_db  # 💡 导入“扫地僧”任务
@@ -36,26 +41,32 @@ def success_response(data: Any = None, message: str = "success") -> dict:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 正在连接 Redis 高并发引擎...")
+
+    redis_ready = False
+    sync_task = None
+
     try:
-        await redis_client.ping() # type: ignore
+        await redis_client.ping()  # type: ignore
+        redis_ready = True
         print("✅ Redis 连接成功！")
     except Exception as e:
-        print(f"❌ Redis 未启动，将降级为数据库模式: {e}")
-    
-    # 💡 启动后台同步任务 (交给系统的异步循环管理)
-    sync_task = asyncio.create_task(sync_likes_to_db())
-    
-    yield # 交出控制权，应用正式运行
-    
-    # 💡 关闭时：安全退出后台任务和 Redis 连接
-    sync_task.cancel()
-    try:
-        await sync_task
-    except asyncio.CancelledError:
-        print("🛑 后台同步任务已安全停止")
-        
-    await redis_client.aclose()
-    print("🛑 Redis 连接已释放")
+        print(f"⚠️ Redis 未启动，阶段一将跳过 Redis 后台任务: {e}")
+
+    if redis_ready:
+        sync_task = asyncio.create_task(sync_likes_to_db())
+
+    yield
+
+    if sync_task:
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            print("🛑 后台同步任务已安全停止")
+
+    if redis_ready:
+        await redis_client.aclose()
+        print("🛑 Redis 连接已释放")
 
 # ==========================================
 # 3. FastAPI 实例初始化
@@ -68,8 +79,82 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
-    lifespan=lifespan # 💡 挂载生命周期
+    lifespan=lifespan
 )
+
+
+def _biz_code_from_status(http_status: int) -> int:
+    """将 HTTP 状态码映射为项目内部业务 code。"""
+    mapping = {
+        status.HTTP_400_BAD_REQUEST: 40001,
+        status.HTTP_401_UNAUTHORIZED: 40101,
+        status.HTTP_403_FORBIDDEN: 40301,
+        status.HTTP_404_NOT_FOUND: 40401,
+        status.HTTP_409_CONFLICT: 40901,
+        status.HTTP_422_UNPROCESSABLE_ENTITY: 40001,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: 50001,
+    }
+    return mapping.get(http_status, 50001 if http_status >= 500 else 40001)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """统一处理业务主动抛出的 HTTPException。"""
+    message = exc.detail if isinstance(exc.detail, str) else "请求处理失败"
+    body = error_response(
+        code=_biz_code_from_status(exc.status_code),
+        msg=message,
+        data=None,
+        errors=None,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=body.model_dump(mode="json"),
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """统一处理请求参数校验错误，例如缺字段、类型错误、邮箱格式错误。"""
+    errors = []
+    for err in exc.errors():
+        loc = ".".join(str(item) for item in err.get("loc", []))
+        errors.append(
+            {
+                "field": loc,
+                "reason": err.get("msg", "参数错误"),
+            }
+        )
+
+    body = error_response(
+        code=40001,
+        msg="参数错误",
+        data=None,
+        errors=errors,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=body.model_dump(mode="json"),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """统一处理未预期异常，避免直接把 Traceback 暴露给前端。"""
+    logger.exception("未处理的服务器异常: %s", exc)
+
+    body = error_response(
+        code=50001,
+        msg="服务器内部错误",
+        data=None,
+        errors=None,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=body.model_dump(mode="json"),
+    )
+
 
 _backend_dir = os.path.dirname(os.path.abspath(__file__))
 _uploads_dir = os.path.join(_backend_dir, "uploads")
@@ -84,6 +169,7 @@ app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins_list(),
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

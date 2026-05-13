@@ -1,6 +1,6 @@
 # backend/app/schemas/user.py
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field,ConfigDict
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -32,16 +32,13 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     """
     返回给前端的用户信息展示 Schema。
-
-    作用：
-    定义后端向前端返回用户数据时的结构。
-    💡 关键修改：同步了个人资料相关的字段，确保在 API 返回中能看到这些信息。
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
-    # 💡 新增：使返回的数据包含详细的个人资料
+
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[str] = "unknown"
@@ -49,17 +46,9 @@ class UserResponse(UserBase):
     height_cm: Optional[float] = None
     weight_kg: Optional[float] = None
     health_goal: Optional[str] = None
-    
-    # 支持返回饮食偏好和过敏源列表
-    diet_preference: List[str] = []
-    allergens: List[str] = []
-    
-    class Config:
-        """
-        Pydantic 内部配置类。
-        作用：开启 `from_attributes = True`，允许直接读取 SQLAlchemy ORM 对象。
-        """
-        from_attributes = True
+
+    diet_preference: List[str] = Field(default_factory=list)
+    allergens: List[str] = Field(default_factory=list)
 
 class UserUpdate(BaseModel):
     """

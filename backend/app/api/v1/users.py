@@ -1,82 +1,75 @@
 # backend/app/api/v1/users.py
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-# 💡 导入统一响应格式工具
 from app.schemas.response import StandardResponse, success_response
-# 导入 Schema、Service 和 Token 工具类
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
-from app.schemas.token import Token
+from app.schemas.user import UserResponse, UserUpdate
 from app.services.user_service import UserService
-from app.core.security import token_generator
 
-# 💡 导入全局依赖：数据库连接生成器 和 我们的“保安”函数
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
 
 # 创建路由组
 router = APIRouter()
 
-# ==========================================
-# 1. 用户注册接口
-# ==========================================
-@router.post("/register", response_model=StandardResponse[UserResponse], status_code=status.HTTP_201_CREATED)
-def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    """
-    用户注册接口。
-    已适配 StandardResponse 统一返回格式。
-    """
-    # 检查邮箱是否冲突
-    existing_user = UserService.get_user_by_email(db, email=user_in.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该邮箱已经被注册，请更换邮箱或前往登录页面。"
-        )
+# # ==========================================
+# # 1. 用户注册接口
+# # ==========================================
+# @router.post("/register", response_model=StandardResponse[UserResponse], status_code=status.HTTP_201_CREATED)
+# def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
+#     """
+#     用户注册接口。
+#     已适配 StandardResponse 统一返回格式。
+#     """
+#     # 检查邮箱是否冲突
+#     existing_user = UserService.get_user_by_email(db, email=user_in.email)
+#     if existing_user:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="该邮箱已经被注册，请更换邮箱或前往登录页面。"
+#         )
     
-    # 执行入库
-    new_user = UserService.create_user(db, user_in=user_in)
+#     # 执行入库
+#     new_user = UserService.create_user(db, user_in=user_in)
     
-    # 💡 使用 success_response 进行包裹
-    return success_response(data=new_user, msg="账号注册成功")
+#     # 💡 使用 success_response 进行包裹
+#     return success_response(data=new_user, msg="账号注册成功")
 
 
-# ==========================================
-# 2. 用户登录接口 (发牌)
-# ==========================================
-@router.post("/login", response_model=Token)
-def login_access_token(
-    db: Session = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
-):
-    """
-    用户登录接口 (OAuth2 标准兼容)。
+# # ==========================================
+# # 2. 用户登录接口 (发牌)
+# # ==========================================
+# @router.post("/login", response_model=Token)
+# def login_access_token(
+#     db: Session = Depends(get_db),
+#     form_data: OAuth2PasswordRequestForm = Depends()
+# ):
+#     """
+#     用户登录接口 (OAuth2 标准兼容)。
     
-    ⚠️ 注意：此接口保持原有的 Token 格式返回，不使用 StandardResponse 包裹。
-    这是为了兼容 Swagger UI 自带的 'Authorize' 锁定功能，
-    因为该功能强制要求返回体必须直接包含 access_token 字段。
-    """
-    # 去 Service 层比对账号和加密密码
-    user = UserService.authenticate_user(
-        db, email=form_data.username, password=form_data.password
-    )
+#     ⚠️ 注意：此接口保持原有的 Token 格式返回，不使用 StandardResponse 包裹。
+#     这是为了兼容 Swagger UI 自带的 'Authorize' 锁定功能，
+#     因为该功能强制要求返回体必须直接包含 access_token 字段。
+#     """
+#     # 去 Service 层比对账号和加密密码
+#     user = UserService.authenticate_user(
+#         db, email=form_data.username, password=form_data.password
+#     )
     
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="邮箱或密码错误",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="邮箱或密码错误",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
 
-    # 验证通过，用用户的 ID 签发 JWT Token
-    access_token = token_generator.create_access_token(subject=user.id)
+#     # 验证通过，用用户的 ID 签发 JWT Token
+#     access_token = token_generator.create_access_token(subject=user.id)
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+#     return {
+#         "access_token": access_token,
+#         "token_type": "bearer"
+#     }
 
 
 # ==========================================
