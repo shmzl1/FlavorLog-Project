@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/section_card.dart';
 import '../../controllers/fridge_controller.dart';
 import '../../models/fridge_item_model.dart';
+import 'fridge_video_entry_page.dart';
 
 class CyberFridgePage extends StatelessWidget {
   const CyberFridgePage({super.key});
@@ -47,23 +50,20 @@ class _FridgeItemsTab extends StatelessWidget {
         return const Center(child: CircularProgressIndicator());
       }
       if (controller.errorMessage.value.isNotEmpty) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(controller.errorMessage.value,
-                  style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: controller.loadItems,
-                child: const Text('重试'),
-              ),
-            ],
-          ),
+        return EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: '加载失败',
+          message: controller.errorMessage.value,
+          actionLabel: '重试',
+          onAction: controller.loadItems,
         );
       }
       if (controller.items.isEmpty) {
-        return const Center(child: Text('冰箱是空的，点击右下角添加食材'));
+        return const EmptyState(
+          icon: Icons.kitchen_outlined,
+          title: '冰箱是空的',
+          message: '点击右下角"添加食材"，开始管理你的冰箱吧。',
+        );
       }
 
       // 即将过期提示
@@ -251,47 +251,46 @@ class _RecipeTabState extends State<_RecipeTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('生成食谱设置',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _target,
-            decoration: const InputDecoration(
-              labelText: '目标',
-              border: OutlineInputBorder(),
+          SectionCard(
+            title: '生成食谱设置',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _target,
+                  decoration: const InputDecoration(labelText: '目标'),
+                  items: _targetItems,
+                  onChanged: (v) => setState(() => _target = v!),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _maxCalCtrl,
+                  decoration: const InputDecoration(labelText: '最大热量 (kcal)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: widget.controller.isSubmitting.value
+                          ? null
+                          : _submitTask,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: widget.controller.isSubmitting.value
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('生成食谱'),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            items: _targetItems,
-            onChanged: (v) => setState(() => _target = v!),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _maxCalCtrl,
-            decoration: const InputDecoration(
-              labelText: '最大热量 (kcal)',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 16),
-          Obx(
-            () => SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: widget.controller.isSubmitting.value
-                    ? null
-                    : _submitTask,
-                icon: const Icon(Icons.auto_awesome),
-                label: widget.controller.isSubmitting.value
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('生成食谱'),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
           _RecipeResultView(controller: widget.controller),
         ],
       ),
@@ -358,64 +357,60 @@ class _RecipeResultView extends StatelessWidget {
       final nutrition =
           result['nutrition'] as Map<String, dynamic>? ?? {};
 
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(description,
-                  style: TextStyle(color: Colors.grey.shade600)),
-              const Divider(height: 20),
-              const Text('食材清单',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              ...ingredients.map((e) {
-                final m = e as Map<String, dynamic>;
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: Text(
-                      '· ${m['name']}  ${m['amount']}'),
-                );
-              }),
-              const Divider(height: 20),
-              const Text('烹饪步骤',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              ...steps.asMap().entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(left: 8, top: 4),
-                      child: Text('${e.key + 1}. ${e.value}'),
-                    ),
-                  ),
-              const Divider(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NutritionChip(
-                    label: '热量',
-                    value: '${nutrition['calories'] ?? '-'} kcal',
-                  ),
-                  _NutritionChip(
-                    label: '蛋白质',
-                    value: '${nutrition['protein_g'] ?? '-'} g',
-                  ),
-                  _NutritionChip(
-                    label: '脂肪',
-                    value: '${nutrition['fat_g'] ?? '-'} g',
-                  ),
-                  _NutritionChip(
-                    label: '碳水',
-                    value: '${nutrition['carbohydrate_g'] ?? '-'} g',
-                  ),
-                ],
+      return SectionCard(
+        title: title.isNotEmpty ? title : '食谱结果',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(description,
+                    style: TextStyle(color: Colors.grey.shade600)),
               ),
-            ],
-          ),
+            const Text('食材清单',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            ...ingredients.map((e) {
+              final m = e as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.only(left: 8, top: 2),
+                child: Text('· ${m['name']}  ${m['amount']}'),
+              );
+            }),
+            const Divider(height: 20),
+            const Text('烹饪步骤',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            ...steps.asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 4),
+                    child: Text('${e.key + 1}. ${e.value}'),
+                  ),
+                ),
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _NutritionChip(
+                  label: '热量',
+                  value: '${nutrition['calories'] ?? '-'} kcal',
+                ),
+                _NutritionChip(
+                  label: '蛋白质',
+                  value: '${nutrition['protein_g'] ?? '-'} g',
+                ),
+                _NutritionChip(
+                  label: '脂肪',
+                  value: '${nutrition['fat_g'] ?? '-'} g',
+                ),
+                _NutritionChip(
+                  label: '碳水',
+                  value: '${nutrition['carbohydrate_g'] ?? '-'} g',
+                ),
+              ],
+            ),
+          ],
         ),
       );
     });
@@ -449,14 +444,52 @@ class _AddItemFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton.extended(
-      onPressed: () => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (_) => _AddItemSheet(controller: controller),
-      ),
+      onPressed: () => _showAddOptions(context),
       icon: const Icon(Icons.add),
       label: const Text('添加食材'),
+    );
+  }
+
+  void _showAddOptions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('视频扫描'),
+              subtitle: const Text('拍摄冰箱，AI 自动识别食材'),
+              onTap: () async {
+                Navigator.pop(context);
+                final ok = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FridgeVideoEntryPage(),
+                  ),
+                );
+                if (ok == true) controller.loadItems();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('手动添加'),
+              subtitle: const Text('逐项填写食材信息'),
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => _AddItemSheet(controller: controller),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 }
