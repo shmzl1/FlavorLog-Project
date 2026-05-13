@@ -108,14 +108,55 @@ class FoodRecordService {
 
   /// 上传图片 POST /uploads/image
   Future<ApiResponse<Map<String, dynamic>>> uploadImage(
-    String filePath,
-  ) async {
+    String filePath, {
+    String scene = 'food',
+  }) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
-      'scene': 'food',
+      'scene': scene,
     });
     final resp = await _client.dio.post<dynamic>(
       ApiEndpoints.uploadImage,
+      data: formData,
+    );
+    final json = resp.data as Map<String, dynamic>;
+    return ApiResponse.fromJson(
+      json,
+      (raw) => raw as Map<String, dynamic>,
+    );
+  }
+
+  /// 上传视频 POST /uploads/video
+  Future<ApiResponse<Map<String, dynamic>>> uploadVideo(
+    String filePath, {
+    String scene = 'food_scan',
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+      'scene': scene,
+    });
+    final resp = await _client.dio.post<dynamic>(
+      ApiEndpoints.uploadVideo,
+      data: formData,
+    );
+    final json = resp.data as Map<String, dynamic>;
+    return ApiResponse.fromJson(
+      json,
+      (raw) => raw as Map<String, dynamic>,
+    );
+  }
+
+  /// 上传音频 POST /uploads/audio
+  Future<ApiResponse<Map<String, dynamic>>> uploadAudio(
+    String filePath, {
+    String scene = 'voice_note',
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+      'scene': scene,
+    });
+    final resp = await _client.dio.post<dynamic>(
+      ApiEndpoints.uploadAudio,
       data: formData,
     );
     final json = resp.data as Map<String, dynamic>;
@@ -144,6 +185,28 @@ class FoodRecordService {
     return ApiResponse.fromJson(
       json,
       (raw) => PhotoRecognitionDraft.fromJson(raw as Map<String, dynamic>),
+    );
+  }
+
+  /// 视频极速录入 POST /recognition/video-fast-entry
+  /// 上传视频，返回 AI 识别的饮食记录草稿列表（未保存到数据库）
+  Future<ApiResponse<List<Map<String, dynamic>>>> videoFastEntry(
+    String filePath,
+  ) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        filePath,
+        contentType: DioMediaType('video', 'mp4'),
+      ),
+    });
+    final resp = await _client.dio.post<dynamic>(
+      ApiEndpoints.videoFastEntry,
+      data: formData,
+    );
+    final json = resp.data as Map<String, dynamic>;
+    return ApiResponse.fromJson(
+      json,
+      (raw) => (raw as List<dynamic>).cast<Map<String, dynamic>>(),
     );
   }
 }

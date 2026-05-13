@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/section_card.dart';
+import '../../components/stat_tile.dart';
 import '../../controllers/food_record_controller.dart';
 import '../../models/food_record_model.dart';
+import 'food_video_entry_page.dart';
 
 class FoodRecordPage extends StatelessWidget {
   const FoodRecordPage({super.key});
@@ -29,7 +33,7 @@ class FoodRecordPage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddDialog(context, controller),
+        onPressed: () => _showAddOptions(context, controller),
         icon: const Icon(Icons.add),
         label: const Text('新增记录'),
       ),
@@ -49,6 +53,44 @@ class FoodRecordPage extends StatelessWidget {
     if (picked != null) {
       await controller.changeDate(picked);
     }
+  }
+
+  void _showAddOptions(BuildContext context, FoodRecordController controller) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('视频录入'),
+              subtitle: const Text('录制视频，AI 自动识别食物'),
+              onTap: () async {
+                Navigator.pop(context);
+                final ok = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FoodVideoEntryPage(),
+                  ),
+                );
+                if (ok == true) controller.loadRecords();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('手动录入'),
+              subtitle: const Text('逐项填写食物信息'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddDialog(context, controller);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showAddDialog(BuildContext context, FoodRecordController controller) {
@@ -101,62 +143,47 @@ class _SummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       if (controller.records.isEmpty) return const SizedBox.shrink();
-      return Container(
-        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NutrientChip(
-              label: '热量',
-              value: '${controller.todayTotalCalories.toStringAsFixed(0)} kcal',
-            ),
-            _NutrientChip(
-              label: '蛋白质',
-              value: '${controller.todayTotalProtein.toStringAsFixed(1)} g',
-            ),
-            _NutrientChip(
-              label: '脂肪',
-              value: '${controller.todayTotalFat.toStringAsFixed(1)} g',
-            ),
-            _NutrientChip(
-              label: '碳水',
-              value:
-                  '${controller.todayTotalCarbohydrate.toStringAsFixed(1)} g',
-            ),
-          ],
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: SectionCard(
+          title: '今日营养摘要',
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 90,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              StatTile(
+                title: '热量',
+                value: controller.todayTotalCalories.toStringAsFixed(0),
+                unit: 'kcal',
+                icon: Icons.local_fire_department,
+              ),
+              StatTile(
+                title: '蛋白质',
+                value: controller.todayTotalProtein.toStringAsFixed(1),
+                unit: 'g',
+                icon: Icons.fitness_center,
+              ),
+              StatTile(
+                title: '脂肪',
+                value: controller.todayTotalFat.toStringAsFixed(1),
+                unit: 'g',
+                icon: Icons.water_drop,
+              ),
+              StatTile(
+                title: '碳水',
+                value: controller.todayTotalCarbohydrate.toStringAsFixed(1),
+                unit: 'g',
+                icon: Icons.grain,
+              ),
+            ],
+          ),
         ),
       );
     });
-  }
-}
-
-class _NutrientChip extends StatelessWidget {
-  const _NutrientChip({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(value,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(fontWeight: FontWeight.bold)),
-        Text(label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(color: Colors.grey)),
-      ],
-    );
   }
 }
 
@@ -173,23 +200,20 @@ class _RecordList extends StatelessWidget {
         return const Center(child: CircularProgressIndicator());
       }
       if (controller.errorMessage.value.isNotEmpty) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(controller.errorMessage.value,
-                  style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: controller.loadRecords,
-                child: const Text('重试'),
-              ),
-            ],
-          ),
+        return EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: '加载失败',
+          message: controller.errorMessage.value,
+          actionLabel: '重试',
+          onAction: controller.loadRecords,
         );
       }
       if (controller.records.isEmpty) {
-        return const Center(child: Text('今天还没有饮食记录，点击右下角新增'));
+        return const EmptyState(
+          icon: Icons.restaurant_menu_outlined,
+          title: '今天还没有饮食记录',
+          message: '点击右下角"新增记录"，开始记录今天的饮食吧。',
+        );
       }
       return ListView.builder(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/section_card.dart';
+import '../../components/stat_tile.dart';
 import '../../controllers/health_report_controller.dart';
 import '../../models/health_model.dart';
 
@@ -49,18 +52,12 @@ class _WeeklyReportTab extends StatelessWidget {
       }
       final report = controller.weeklyReport.value;
       if (report == null) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('暂无周报数据'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: controller.loadWeeklyReport,
-                child: const Text('刷新'),
-              ),
-            ],
-          ),
+        return EmptyState(
+          icon: Icons.bar_chart_outlined,
+          title: '暂无周报数据',
+          message: '',
+          actionLabel: '刷新',
+          onAction: controller.loadWeeklyReport,
         );
       }
       return ListView(
@@ -73,76 +70,88 @@ class _WeeklyReportTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           // 核心指标
-          Row(
-            children: [
-              Expanded(
-                child: _MetricCard(
-                  label: '日均热量',
-                  value: '${report.avgCalories.toStringAsFixed(0)} kcal',
+          SectionCard(
+            title: '核心指标',
+            child: GridView.count(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: 90,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                StatTile(
+                  title: '日均热量',
+                  value: report.avgCalories.toStringAsFixed(0),
+                  unit: 'kcal',
                   icon: Icons.local_fire_department,
-                  color: Colors.orange,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricCard(
-                  label: '日均蛋白质',
-                  value: '${report.avgProteinG.toStringAsFixed(1)} g',
+                StatTile(
+                  title: '日均蛋白质',
+                  value: report.avgProteinG.toStringAsFixed(1),
+                  unit: 'g',
                   icon: Icons.fitness_center,
-                  color: Colors.blue,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           // 热量趋势
           if (report.calorieTrend.isNotEmpty) ...[
-            const Text('本周热量趋势',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            _CalorieTrendChart(trend: report.calorieTrend),
+            SectionCard(
+              title: '本周热量趋势',
+              child: _CalorieTrendChart(trend: report.calorieTrend),
+            ),
             const SizedBox(height: 16),
           ],
           // 警告
           if (report.warnings.isNotEmpty) ...[
-            const Text('健康提醒',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.orange)),
-            const SizedBox(height: 6),
-            ...report.warnings.map(
-              (w) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.warning_amber,
-                        size: 16, color: Colors.orange),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(w)),
-                  ],
-                ),
+            SectionCard(
+              title: '健康提醒',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: report.warnings
+                    .map(
+                      (w) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.warning_amber,
+                                size: 16, color: Colors.orange),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(w)),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
             const SizedBox(height: 12),
           ],
           // 建议
           if (report.suggestions.isNotEmpty) ...[
-            const Text('改善建议',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: Colors.green)),
-            const SizedBox(height: 6),
-            ...report.suggestions.map(
-              (s) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.tips_and_updates,
-                        size: 16, color: Colors.green),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(s)),
-                  ],
-                ),
+            SectionCard(
+              title: '改善建议',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: report.suggestions
+                    .map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.tips_and_updates,
+                                size: 16, color: Colors.green),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(s)),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ],
@@ -166,6 +175,7 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 已由 StatTile 替代，保留以免旧引用报错
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -250,60 +260,40 @@ class _BlacklistTab extends StatelessWidget {
       }
       final data = controller.blacklist.value;
       if (data == null) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('暂无红黑榜数据'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: controller.loadBlacklist,
-                child: const Text('刷新'),
-              ),
-            ],
-          ),
+        return EmptyState(
+          icon: Icons.rule_outlined,
+          title: '暂无红黑榜数据',
+          message: '',
+          actionLabel: '刷新',
+          onAction: controller.loadBlacklist,
         );
       }
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 黑榜
-          Row(
-            children: [
-              const Icon(Icons.thumb_down, color: Colors.red),
-              const SizedBox(width: 6),
-              const Text('黑榜（建议回避）',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.red)),
-            ],
+          SectionCard(
+            title: '黑榜（建议回避）',
+            child: data.blackItems.isEmpty
+                ? const Text('暂无黑榜食物',
+                    style: TextStyle(color: Colors.grey))
+                : Column(
+                    children:
+                        data.blackItems.map((item) => _BlackItemCard(item: item)).toList(),
+                  ),
           ),
-          const SizedBox(height: 8),
-          if (data.blackItems.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(left: 8, bottom: 8),
-              child: Text('暂无黑榜食物', style: TextStyle(color: Colors.grey)),
-            )
-          else
-            ...data.blackItems.map((item) => _BlackItemCard(item: item)),
           const SizedBox(height: 16),
           // 红榜
-          Row(
-            children: [
-              const Icon(Icons.thumb_up, color: Colors.green),
-              const SizedBox(width: 6),
-              const Text('红榜（推荐食用）',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.green)),
-            ],
+          SectionCard(
+            title: '红榜（推荐食用）',
+            child: data.redItems.isEmpty
+                ? const Text('暂无红榜食物',
+                    style: TextStyle(color: Colors.grey))
+                : Column(
+                    children:
+                        data.redItems.map((item) => _RedItemCard(item: item)).toList(),
+                  ),
           ),
-          const SizedBox(height: 8),
-          if (data.redItems.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Text('暂无红榜食物', style: TextStyle(color: Colors.grey)),
-            )
-          else
-            ...data.redItems.map((item) => _RedItemCard(item: item)),
         ],
       );
     });
@@ -391,7 +381,11 @@ class _FeedbackTab extends StatelessWidget {
     return Scaffold(
       body: Obx(() {
         if (controller.feedbacks.isEmpty) {
-          return const Center(child: Text('还没有餐后反馈记录'));
+          return const EmptyState(
+            icon: Icons.feedback_outlined,
+            title: '还没有餐后反馈',
+            message: '点击右下角"新增反馈"，记录你的餐后感受吧。',
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),

@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../models/fridge_item_model.dart';
 import '../../models/api_response.dart';
 import 'api_client.dart';
@@ -108,5 +110,29 @@ class FridgeService {
     final resp = await _client.get('/fridge/recipe-tasks/$taskId');
     final json = resp.data as Map<String, dynamic>;
     return ApiResponse.fromJson(json, (raw) => raw as Map<String, dynamic>);
+  }
+
+  /// 视频扫描录入冰箱食材 POST /fridge/scan
+  /// 上传视频，后端 YOLO 检测后直接存入数据库，返回已保存的食材列表
+  Future<ApiResponse<List<FridgeItemModel>>> scanFromVideo(
+    String filePath,
+  ) async {
+    final formData = FormData.fromMap({
+      'video': await MultipartFile.fromFile(
+        filePath,
+        contentType: DioMediaType('video', 'mp4'),
+      ),
+    });
+    final resp = await _client.dio.post<dynamic>(
+      ApiEndpoints.fridgeScan,
+      data: formData,
+    );
+    final json = resp.data as Map<String, dynamic>;
+    return ApiResponse.fromJson(
+      json,
+      (raw) => (raw as List<dynamic>)
+          .map((e) => FridgeItemModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
   }
 }
