@@ -21,7 +21,7 @@ class FlavorLogApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       initialBinding: InitialBinding(),
-      initialRoute: AppRoutes.home,
+      initialRoute: AppRoutes.authGate,
       getPages: AppRoutes.pages,
     );
   }

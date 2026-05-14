@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../pages/auth/auth_gate_page.dart';
 import '../../pages/auth/auth_page.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/community/community_page.dart';
@@ -9,6 +10,7 @@ import '../../pages/cyber_fridge/cyber_fridge_page.dart';
 import '../../pages/health_report/health_report_page.dart';
 
 class AppRoutes {
+  static const String authGate = '/auth-gate';
   static const String auth = '/auth';
   static const String home = '/home';
   static const String foodRecord = '/food-record';
@@ -18,6 +20,7 @@ class AppRoutes {
   static const String profile = '/profile';
 
   static final List<GetPage<dynamic>> pages = [
+    GetPage(name: authGate, page: () => const AuthGatePage()),
     GetPage(name: auth, page: () => const AuthPage()),
     GetPage(name: home, page: () => const HomePage()),
     GetPage(name: foodRecord, page: () => const FoodRecordPage()),

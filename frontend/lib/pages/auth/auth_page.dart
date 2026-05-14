@@ -264,7 +264,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     if (!(_loginFormKey.currentState?.validate() ?? false)) {
       return;
     }
-    final ok = await _authController.loginWithMock(
+    final ok = await _authController.login(
       account: _loginAccountCtrl.text.trim(),
       password: _loginPasswordCtrl.text,
     );
@@ -282,7 +282,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     if (!(_registerFormKey.currentState?.validate() ?? false)) {
       return;
     }
-    final ok = await _authController.registerWithMock(
+    final ok = await _authController.register(
       nickname: _registerNicknameCtrl.text.trim(),
       account: _registerAccountCtrl.text.trim(),
       password: _registerPasswordCtrl.text,
@@ -298,3 +298,4 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     }
   }
 }
+
