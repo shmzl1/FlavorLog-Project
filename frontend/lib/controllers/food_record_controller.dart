@@ -34,11 +34,7 @@ class FoodRecordController extends GetxController {
         pageSize: 50,
       );
       if (resp.isSuccess && resp.data != null) {
-        final raw = resp.data!;
-        final items = (raw['items'] as List<dynamic>? ?? [])
-            .map((e) => FoodRecordModel.fromJson(e as Map<String, dynamic>))
-            .toList();
-        records.assignAll(items);
+        records.assignAll(resp.data!);
       } else {
         errorMessage.value = resp.message;
       }

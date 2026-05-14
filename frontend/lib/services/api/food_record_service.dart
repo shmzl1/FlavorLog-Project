@@ -35,9 +35,9 @@ class FoodRecordService {
   }
 
   /// 获取饮食记录列表 GET /food-records
-  Future<ApiResponse<Map<String, dynamic>>> getRecords({
+  Future<ApiResponse<List<FoodRecordModel>>> getRecords({
     int page = 1,
-    int pageSize = 10,
+    int pageSize = 50,
     String? startDate,
     String? endDate,
     String? mealType,
@@ -54,7 +54,9 @@ class FoodRecordService {
     final json = resp.data as Map<String, dynamic>;
     return ApiResponse.fromJson(
       json,
-      (raw) => raw as Map<String, dynamic>,
+      (raw) => (raw as List<dynamic>)
+          .map((e) => FoodRecordModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
