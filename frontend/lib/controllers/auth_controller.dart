@@ -1,4 +1,5 @@
-﻿import 'package:get/get.dart';
+﻿import 'package:flutter/foundation.dart'; // 💡 新增：用于打印真实日志
+import 'package:get/get.dart';
 
 import '../services/api/api_client.dart';
 import '../services/api/api_endpoints.dart';
@@ -68,8 +69,13 @@ class AuthController extends GetxController {
         errorMessage.value = body['message'] as String? ?? '登录失败';
         return false;
       }
-    } catch (e) {
-      errorMessage.value = '网络请求失败，请检查连接';
+    } catch (e, stackTrace) {
+      // 🚨 核心修复：暴露真实错误
+      debugPrint('==== 登录崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      
+      errorMessage.value = '登录失败: $e';
       return false;
     } finally {
       isLoading.value = false;
@@ -131,8 +137,13 @@ class AuthController extends GetxController {
         errorMessage.value = body['message'] as String? ?? '注册失败';
         return false;
       }
-    } catch (e) {
-      errorMessage.value = '网络请求失败，请检查连接';
+    } catch (e, stackTrace) {
+      // 🚨 核心修复：暴露真实错误
+      debugPrint('==== 注册崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      
+      errorMessage.value = '注册失败: $e';
       return false;
     } finally {
       isLoading.value = false;

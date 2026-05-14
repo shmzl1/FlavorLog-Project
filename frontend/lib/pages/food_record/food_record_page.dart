@@ -8,6 +8,8 @@ import '../../controllers/food_record_controller.dart';
 import '../../models/food_record_model.dart';
 import 'food_video_entry_page.dart';
 
+/// [FoodRecordPage] 是饮食记录的主页面。
+/// 包含顶部的日期选择、当天的营养数据汇总摘要（SummaryBar）以及详细的饮食记录列表。
 class FoodRecordPage extends StatelessWidget {
   const FoodRecordPage({super.key});
 
@@ -40,6 +42,7 @@ class FoodRecordPage extends StatelessWidget {
     );
   }
 
+  /// 弹出日期选择器，供用户回溯或查看指定日期的饮食记录
   Future<void> _pickDate(
     BuildContext context,
     FoodRecordController controller,
@@ -55,6 +58,8 @@ class FoodRecordPage extends StatelessWidget {
     }
   }
 
+  /// 点击“新增记录”后弹出的底部菜单
+  /// 提供“视频录入(AI识别)”和“手动录入”两个选项
   void _showAddOptions(BuildContext context, FoodRecordController controller) {
     showModalBottomSheet<void>(
       context: context,
@@ -74,6 +79,7 @@ class FoodRecordPage extends StatelessWidget {
                     builder: (_) => const FoodVideoEntryPage(),
                   ),
                 );
+                // 如果录入成功，重新拉取列表刷新数据
                 if (ok == true) controller.loadRecords();
               },
             ),
@@ -93,10 +99,11 @@ class FoodRecordPage extends StatelessWidget {
     );
   }
 
+  /// 唤起手动新增记录的底部弹出表单
   void _showAddDialog(BuildContext context, FoodRecordController controller) {
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: true, // 允许弹窗充满全屏或根据键盘高度自适应
       useSafeArea: true,
       builder: (_) => _AddRecordSheet(controller: controller),
     );
@@ -105,6 +112,7 @@ class FoodRecordPage extends StatelessWidget {
 
 // ── 日期标题栏 ────────────────────────────────────────────────────────────────
 
+/// [_DateBar] 用于展示当前选中的日期，使用 Obx 响应式刷新。
 class _DateBar extends StatelessWidget {
   const _DateBar({required this.controller});
   final FoodRecordController controller;
@@ -135,6 +143,7 @@ class _DateBar extends StatelessWidget {
 
 // ── 当日营养汇总 ────────────────────────────────────────────────────────────
 
+/// [_SummaryBar] 用于展示当天所有记录的总营养素（热量、蛋白质、脂肪、碳水）。
 class _SummaryBar extends StatelessWidget {
   const _SummaryBar({required this.controller});
   final FoodRecordController controller;
@@ -147,13 +156,17 @@ class _SummaryBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: SectionCard(
           title: '今日营养摘要',
-          child: GridView.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            mainAxisExtent: 90,
+          // 【修复点】：将 GridView.count 替换为基础 GridView，并传入 gridDelegate。
+          // SliverGridDelegateWithFixedCrossAxisCount 完美支持 mainAxisExtent 属性。
+          child: GridView(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: 90, // 强制设置主轴方向（高度）为90
+            ),
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(), // 禁用内部滚动，交给外部组件滚动
             children: [
               StatTile(
                 title: '热量',
@@ -189,6 +202,8 @@ class _SummaryBar extends StatelessWidget {
 
 // ── 记录列表 ────────────────────────────────────────────────────────────────
 
+/// [_RecordList] 负责渲染当天所有饮食记录的列表。
+/// 处理了加载中、错误状态、空状态等 UI 逻辑。
 class _RecordList extends StatelessWidget {
   const _RecordList({required this.controller});
   final FoodRecordController controller;
@@ -231,6 +246,8 @@ class _RecordList extends StatelessWidget {
 
 // ── 单条记录卡片 ───────────────────────────────────────────────────────────
 
+/// [_RecordCard] 渲染单条饮食记录（如"午餐"）。
+/// 使用 ExpansionTile 提供可折叠展开的功能，展示该餐具体的食物项明细。
 class _RecordCard extends StatelessWidget {
   const _RecordCard({required this.record, required this.controller});
   final FoodRecordModel record;
@@ -293,6 +310,7 @@ class _RecordCard extends StatelessWidget {
     );
   }
 
+  /// 构建卡片折叠面板内单个食物项目的详情行
   Widget _buildItemRow(FoodItemModel item) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -310,6 +328,7 @@ class _RecordCard extends StatelessWidget {
     );
   }
 
+  /// 二次确认删除操作，防止误触
   void _confirmDelete(BuildContext context) {
     showDialog<void>(
       context: context,
@@ -341,6 +360,8 @@ class _RecordCard extends StatelessWidget {
 
 // ── 新增记录底部表单 ────────────────────────────────────────────────────────
 
+/// [_AddRecordSheet] 手动新增记录信息的底部滑动表单（BottomSheet）。
+/// 包含表单校验和动态增删食物项的逻辑。
 class _AddRecordSheet extends StatefulWidget {
   const _AddRecordSheet({required this.controller});
   final FoodRecordController controller;
@@ -355,7 +376,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
   DateTime _recordTime = DateTime.now();
   final _descController = TextEditingController();
 
-  // 食物明细列表
+  // 食物明细列表，支持用户添加多项食物
   final List<_FoodItemForm> _itemForms = [_FoodItemForm()];
 
   static const List<DropdownMenuItem<String>> _mealItems = [
@@ -378,6 +399,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
+        // MediaQuery.viewInsetsOf(context).bottom 用来动态给软键盘留出空间
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
           left: 16,
@@ -454,6 +476,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                     ),
                   ],
                 ),
+                // 动态渲染用户填写的每一条食物表单项
                 ..._itemForms.asMap().entries.map(
                       (e) => _FoodItemFormWidget(
                         key: ValueKey(e.key),
@@ -464,7 +487,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
                       ),
                     ),
                 const SizedBox(height: 16),
-                // 提交
+                // 提交按钮
                 Obx(
                   () => SizedBox(
                     width: double.infinity,
@@ -491,6 +514,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
     );
   }
 
+  /// 唤起时间选择器
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -510,10 +534,12 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
     }
   }
 
+  /// 追加一条空的食物录入项
   void _addItem() {
     setState(() => _itemForms.add(_FoodItemForm()));
   }
 
+  /// 移除指定索引的食物录入项
   void _removeItem(int index) {
     setState(() {
       _itemForms[index].dispose();
@@ -521,18 +547,24 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
     });
   }
 
+  /// 提交并保存整条饮食记录
+  /// 会先校验表单字段，然后将 TextEditingController 中的数据转换为业务实体，调接口提交
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    
+    // 过滤出有效的食物对象
     final items = _itemForms
         .map((f) => f.toModel())
         .whereType<FoodItemModel>()
         .toList();
+        
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请至少填写一种食物')),
       );
       return;
     }
+    
     final ok = await widget.controller.createRecord(
       mealType: _mealType,
       recordTime: _recordTime,
@@ -541,6 +573,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
           _descController.text.trim().isEmpty ? null : _descController.text.trim(),
       items: items,
     );
+    
     if (ok && mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -556,6 +589,8 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
 
 // ── 单个食物行表单数据 ─────────────────────────────────────────────────────
 
+/// [_FoodItemForm] 封装单个食物表单相关的所有 TextEditingController。
+/// 提供 [toModel] 帮手函数用于将表单数据解析并生成 [FoodItemModel] 数据模型。
 class _FoodItemForm {
   final nameCtrl = TextEditingController();
   final weightCtrl = TextEditingController();
@@ -573,6 +608,7 @@ class _FoodItemForm {
     carbCtrl.dispose();
   }
 
+  /// 将输入框中的文本转为实际的实体模型。如果必填项缺失，返回 null。
   FoodItemModel? toModel() {
     final name = nameCtrl.text.trim();
     final weight = double.tryParse(weightCtrl.text.trim());
@@ -591,6 +627,7 @@ class _FoodItemForm {
 
 // ── 单个食物行表单 UI ──────────────────────────────────────────────────────
 
+/// [_FoodItemFormWidget] 渲染单行食物对应的输入框（名称、重量、热量及三大营养素）。
 class _FoodItemFormWidget extends StatelessWidget {
   const _FoodItemFormWidget({
     super.key,

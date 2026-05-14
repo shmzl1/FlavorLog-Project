@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Any  # 引入 Any 用于类型注解
 
 from sqlalchemy.orm import Session
 
@@ -45,22 +46,31 @@ class HealthService:
         return query.order_by(HealthFeedback.feedback_time.desc()).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_food_blacklist(db: Session, user_id: int) -> dict:
-        pairs = (
+    def get_food_blacklist(db: Session, user_id: int) -> dict[str, Any]:
+        # 1. 获取原始的 SQLAlchemy Row 列表
+        raw_pairs = (
             db.query(FoodRecordItem, HealthFeedback)
             .join(FoodRecord, FoodRecordItem.food_record_id == FoodRecord.id)
             .outerjoin(HealthFeedback, HealthFeedback.food_record_id == FoodRecord.id)
             .filter(FoodRecord.user_id == user_id)
             .all()
         )
-        ranked = rank_foods_by_feedback(pairs)
-        if not ranked["black_items"] and not ranked["red_items"]:
+        
+        # 修复 1: 将 SQLAlchemy 的 Row 对象显式转换为原生 tuple，消除类型警告
+        pairs = [tuple(row) for row in raw_pairs]
+        
+        # 修复 2: 显式声明 ranked 是键为 str，值为任意类型 (Any) 的字典
+        ranked: dict[str, Any] = rank_foods_by_feedback(pairs)
+        
+        if not ranked.get("black_items") and not ranked.get("red_items"):
             ranked = HealthService._mock_blacklist()
+            
+        # 因为声明了 dict[str, Any]，这里塞入 datetime 对象就不会再报错了
         ranked["generated_at"] = datetime.now(timezone.utc)
         return ranked
 
     @staticmethod
-    def get_weekly_report(db: Session, user_id: int, week_start: date | None = None) -> dict:
+    def get_weekly_report(db: Session, user_id: int, week_start: date | None = None) -> dict[str, Any]:
         if week_start is None:
             today = date.today()
             week_start = today - timedelta(days=today.weekday())
@@ -115,7 +125,7 @@ class HealthService:
         }
 
     @staticmethod
-    def _mock_blacklist() -> dict:
+    def _mock_blacklist() -> dict[str, Any]:
         return {
             "black_items": [
                 {

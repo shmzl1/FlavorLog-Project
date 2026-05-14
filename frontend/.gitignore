@@ -47,3 +47,5 @@ app.*.map.json
 .vscode/settings.json
 frontend/.vscode/settings.json
 
+# 忽略个人的 API 本地配置文件
+lib/services/api/local_config.dart
