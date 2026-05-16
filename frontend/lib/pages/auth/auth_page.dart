@@ -26,6 +26,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _registerConfirmCtrl = TextEditingController();
 
   late final AuthController _authController;
+  final RegExp _emailPattern =
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
   @override
   void initState() {
@@ -115,7 +117,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             TextFormField(
               controller: _loginAccountCtrl,
               decoration: const InputDecoration(
-                labelText: '手机号或邮箱',
+                labelText: '用户名或邮箱',
                 prefixIcon: Icon(Icons.person_outline),
               ),
               validator: (value) {
@@ -190,13 +192,18 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             const SizedBox(height: 12),
             TextFormField(
               controller: _registerAccountCtrl,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: '手机号或邮箱',
+                labelText: '邮箱',
                 prefixIcon: Icon(Icons.person_outline),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return '账号不能为空';
+                  return '邮箱不能为空';
+                }
+                if (!_emailPattern.hasMatch(value.trim())) {
+                  return '请输入合法邮箱，例如 test@example.com';
                 }
                 return null;
               },
@@ -284,7 +291,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     }
     final ok = await _authController.register(
       nickname: _registerNicknameCtrl.text.trim(),
-      account: _registerAccountCtrl.text.trim(),
+      email: _registerAccountCtrl.text.trim(),
       password: _registerPasswordCtrl.text,
       confirmPassword: _registerConfirmCtrl.text,
     );
