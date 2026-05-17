@@ -1,6 +1,5 @@
 ﻿import 'dart:convert';
-﻿import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../services/api/api_client.dart';
@@ -69,6 +68,9 @@ class AuthController extends GetxController {
         nickname.value = (user['nickname'] as String?) ?? '用户';
         isLoggedIn.value = true;
         return true;
+      } else {
+        errorMessage.value = body['message'] as String? ?? '登录失败';
+        return false;
       }
     } on DioException catch (e) {
       errorMessage.value = _extractDetail(e, '登录失败');
@@ -94,18 +96,21 @@ class AuthController extends GetxController {
     required String confirmPassword,
   }) async {
     clearError();
-    final emailInput = email.trim().toLowerCase();
 
     if (nickname.trim().isEmpty) {
       errorMessage.value = '昵称不能为空';
       return false;
     }
-    if (emailInput.isEmpty) {
-      errorMessage.value = '邮箱不能为空';
+    if (email.trim().isEmpty) {
+      errorMessage.value = '账号不能为空';
       return false;
     }
-    if (!_isValidEmail(emailInput)) {
-      errorMessage.value = '请输入合法邮箱，例如 test@example.com';
+    // 校验格式：邮箱 or 11位中国大陆手机号
+    final acc = email.trim();
+    final isPhone = isChinesePhone(acc);
+    final isEmail = acc.contains('@');
+    if (!isPhone && !isEmail) {
+      errorMessage.value = '请输入有效的邮箱或11位中国大陆手机号';
       return false;
     }
     if (password.isEmpty) {
@@ -123,8 +128,7 @@ class AuthController extends GetxController {
 
     isLoading.value = true;
     try {
-      // 手机号用伪邮箱过渡，等后端支持 phone 字段后替换
-      final acc = account.trim();
+      final acc = email.trim();
       final isPhone = isChinesePhone(acc);
       final Map<String, dynamic> payload = {
         'username': acc,
@@ -153,16 +157,6 @@ class AuthController extends GetxController {
       }
       errorMessage.value = body['message'] as String? ?? '注册失败';
       return false;
-    } on DioException catch (e, stackTrace) {
-      debugPrint('==== 注册崩溃 ====');
-      debugPrint('错误信息: $e');
-      debugPrint('堆栈追踪: $stackTrace');
-
-      final statusCode = e.response?.statusCode;
-      if (statusCode == 422) {
-        errorMessage.value = '注册信息格式不正确，请检查邮箱、密码和昵称';
-        return false;
-      }
     } on DioException catch (e) {
       errorMessage.value = _extractDetail(e, '注册失败');
       return false;

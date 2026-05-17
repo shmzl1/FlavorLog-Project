@@ -26,8 +26,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _registerConfirmCtrl = TextEditingController();
 
   late final AuthController _authController;
-  final RegExp _emailPattern =
-      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
   @override
   void initState() {
@@ -194,7 +192,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               controller: _registerAccountCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: '邮箱',
+                labelText: '手机号或邮箱',
                 prefixIcon: Icon(Icons.person_outline),
                 hintText: '11位手机号 或 邮箱地址',
               ),
@@ -207,10 +205,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               },
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return '邮箱不能为空';
-                }
-                if (!_emailPattern.hasMatch(value.trim())) {
-                  return '请输入合法邮箱，例如 test@example.com';
+                  return '账号不能为空';
                 }
                 final v = value.trim();
                 final isPhone = RegExp(r'^1[3-9]\d{9}$').hasMatch(v);
