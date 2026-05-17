@@ -1,8 +1,12 @@
 # backend/app/schemas/user.py
 
-from pydantic import BaseModel, EmailStr, Field,ConfigDict
+import re
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 from datetime import date, datetime
 from typing import Optional, List
+
+# 11位中国大陆手机号正则
+_PHONE_RE = re.compile(r'^1[3-9]\d{9}$')
 
 class UserBase(BaseModel):
     """
@@ -17,17 +21,25 @@ class UserBase(BaseModel):
     email: EmailStr
     is_active: Optional[bool] = True
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     """
     接收前端注册/创建用户请求的 Schema。
-
-    作用：
-    严格定义前端在注册新用户时必须提交的 JSON 数据结构。
-    相比于基础模型，这里额外增加了 `password` 字段。
-    我们特意将其与响应模型分离，确保密码只在接收时有效，绝不会被意外暴露给外部。
+    支持邮箱注册或11位中国大陆手机号注册（二选一，手机号注册时 email 可省略）。
     """
+    username: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     password: str
     nickname: Optional[str] = None
+    is_active: Optional[bool] = True
+
+    @model_validator(mode='after')
+    def check_email_or_phone(self) -> 'UserCreate':
+        if not self.email and not self.phone:
+            raise ValueError('邮箱和手机号至少填写一项')
+        if self.phone and not _PHONE_RE.match(self.phone):
+            raise ValueError('手机号格式不正确，请输入11位中国大陆手机号')
+        return self
 
 class UserResponse(UserBase):
     """

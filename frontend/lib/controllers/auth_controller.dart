@@ -1,3 +1,4 @@
+﻿import 'dart:convert';
 ﻿import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -69,18 +70,20 @@ class AuthController extends GetxController {
         isLoggedIn.value = true;
         return true;
       }
-      errorMessage.value = body['message'] as String? ?? '登录失败';
+    } on DioException catch (e) {
+      errorMessage.value = _extractDetail(e, '登录失败');
       return false;
-    } catch (e, stackTrace) {
-      debugPrint('==== 登录崩溃 ====');
-      debugPrint('错误信息: $e');
-      debugPrint('堆栈追踪: $stackTrace');
-
-      errorMessage.value = '登录失败: $e';
+    } catch (e) {
+      errorMessage.value = '网络请求失败，请检查连接';
       return false;
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// 是否是11位中国大陆手机号
+  static bool isChinesePhone(String s) {
+    return RegExp(r'^1[3-9]\d{9}$').hasMatch(s);
   }
 
   /// 注册（调用真实后端）
@@ -120,15 +123,22 @@ class AuthController extends GetxController {
 
     isLoading.value = true;
     try {
-      final username = emailInput.split('@').first;
+      // 手机号用伪邮箱过渡，等后端支持 phone 字段后替换
+      final acc = account.trim();
+      final isPhone = isChinesePhone(acc);
+      final Map<String, dynamic> payload = {
+        'username': acc,
+        'password': password,
+        'nickname': nickname.trim(),
+      };
+      if (isPhone) {
+        payload['phone'] = acc;
+      } else {
+        payload['email'] = acc;
+      }
       final resp = await _client.post(
         ApiEndpoints.register,
-        data: {
-          'username': username,
-          'email': emailInput,
-          'password': password,
-          'nickname': nickname.trim(),
-        },
+        data: payload,
       );
       final body = resp.data as Map<String, dynamic>;
       if (body['code'] == 0) {
@@ -153,43 +163,50 @@ class AuthController extends GetxController {
         errorMessage.value = '注册信息格式不正确，请检查邮箱、密码和昵称';
         return false;
       }
-      if (statusCode == 400) {
-        final backendMessage = _extractBackendErrorMessage(e.response?.data);
-        errorMessage.value = backendMessage ?? '注册失败，请检查账号信息';
-        return false;
-      }
-      errorMessage.value = '注册失败，请稍后重试';
+    } on DioException catch (e) {
+      errorMessage.value = _extractDetail(e, '注册失败');
       return false;
-    } catch (e, stackTrace) {
-      debugPrint('==== 注册崩溃 ====');
-      debugPrint('错误信息: $e');
-      debugPrint('堆栈追踪: $stackTrace');
-
-      errorMessage.value = '注册失败，请稍后重试';
+    } catch (e) {
+      errorMessage.value = '网络请求失败，请检查连接';
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  bool _isValidEmail(String input) {
-    final pattern =
-        RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
-    return pattern.hasMatch(input);
-  }
+  /// 从 DioException 安全提取后端返回的错误信息
+  /// 后端统一格式：{"code":..., "message":"...", "errors":[{"field":"...","reason":"..."}]}
+  String _extractDetail(DioException e, String fallback) {
+    dynamic data = e.response?.data;
 
-  String? _extractBackendErrorMessage(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      final detail = data['detail'];
-      if (detail is String && detail.trim().isNotEmpty) {
-        return detail.trim();
-      }
-      final message = data['message'];
-      if (message is String && message.trim().isNotEmpty) {
-        return message.trim();
-      }
+    // 响应体是原始字符串时先尝试解析
+    if (data is String && data.isNotEmpty) {
+      try {
+        data = jsonDecode(data);
+      } catch (_) {}
     }
-    return null;
+
+    if (data is Map) {
+      // 1. 业务错误：message 字段（如"该手机号已经被注册"）
+      final msg = data['message'];
+      if (msg is String && msg.isNotEmpty && msg != '参数错误') return msg;
+
+      // 2. 参数校验错误：errors[0].reason（如"手机号格式不正确"）
+      final errors = data['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        final first = errors.first;
+        if (first is Map) {
+          final reason = first['reason'];
+          if (reason is String && reason.isNotEmpty) return reason;
+        }
+      }
+
+      // 3. 兜底用 message
+      if (msg is String && msg.isNotEmpty) return msg;
+    }
+
+    if (e.response == null) return '网络请求失败，请检查连接';
+    return fallback;
   }
 
   void clearError() {

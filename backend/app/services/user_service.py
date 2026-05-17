@@ -39,8 +39,16 @@ class UserService:
         return db.query(User).filter(User.username == username).first()
 
     @staticmethod
+    def get_user_by_phone(db: Session, phone: str) -> User | None:
+        """根据手机号查询用户。"""
+        return db.query(User).filter(User.phone == phone).first()
+
+    @staticmethod
     def get_user_by_account(db: Session, account: str) -> User | None:
-        """支持使用邮箱或用户名查找用户。"""
+        """支持使用邮箱、用户名或手机号查找用户。"""
+        import re
+        if re.match(r'^1[3-9]\d{9}$', account):
+            return UserService.get_user_by_phone(db, phone=account)
         if "@" in account:
             return UserService.get_user_by_email(db, email=account)
         return UserService.get_user_by_username(db, username=account)
@@ -68,9 +76,12 @@ class UserService:
         hashed_pwd = pwd_hasher.get_password_hash(user_in.password)
         
         # 2. 构建数据库 ORM 对象 (注意这里丢弃了原始的明文 password)
+        # 手机号注册时 email 字段用占位格式，保证唯一性约束不破坏
+        email = user_in.email or f"{user_in.phone}@phone.flavorlog.app"
         db_user = User(
             username=user_in.username,
-            email=user_in.email,
+            email=email,
+            phone=user_in.phone,
             password_hash=hashed_pwd,
             nickname=user_in.nickname,
             diet_preference=[],

@@ -23,8 +23,12 @@ def _auth_payload(user: User) -> dict:
 
 @router.post("/register", response_model=StandardResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    """用户注册，按接口文档返回用户信息和 access_token。"""
-    if UserService.get_user_by_email(db, email=user_in.email):
+    """用户注册，支持邮箱或11位中国大陆手机号，按接口文档返回用户信息和 access_token。"""
+    # 手机号唯一性校验
+    if user_in.phone and UserService.get_user_by_phone(db, phone=user_in.phone):
+        raise HTTPException(status_code=400, detail="该手机号已经被注册")
+    # 邮箱唯一性校验（手机号注册时跳过，占位邮箱由 service 层生成）
+    if user_in.email and UserService.get_user_by_email(db, email=str(user_in.email)):
         raise HTTPException(status_code=400, detail="该邮箱已经被注册")
     if UserService.get_user_by_username(db, username=user_in.username):
         raise HTTPException(status_code=400, detail="该用户名已经被注册")
