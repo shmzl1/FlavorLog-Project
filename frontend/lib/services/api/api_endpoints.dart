@@ -6,7 +6,7 @@ class ApiEndpoints {
   static const String lanBaseUrl = 'http://10.135.12.146:8000/api/v1';
 
   // 切换：模拟器用 localBaseUrl，真机用 lanBaseUrl
-  static const String baseUrl = lanBaseUrl;
+  static const String baseUrl = localBaseUrl;
 
   static const String health = '/health';
 
