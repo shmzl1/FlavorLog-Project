@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../models/food_record_model.dart';
@@ -38,8 +39,14 @@ class FoodRecordController extends GetxController {
       } else {
         errorMessage.value = resp.message;
       }
-    } catch (e) {
-      errorMessage.value = '网络请求失败，请检查连接';
+    } catch (e, stackTrace) {
+      // 🚨 【核心修复点】: 打印出真正的错误堆栈，不要吞掉错误！
+      debugPrint('==== 饮食记录加载崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      
+      // 把真实的错误 $e 显示到界面上，方便你直接看到是类型解析错还是别的错
+      errorMessage.value = '加载失败: $e';
     } finally {
       isLoading.value = false;
     }
@@ -77,8 +84,13 @@ class FoodRecordController extends GetxController {
         errorMessage.value = resp.message;
         return false;
       }
-    } catch (e) {
-      errorMessage.value = '提交失败，请检查网络';
+    } catch (e, stackTrace) {
+      // 🚨 【核心修复点】
+      debugPrint('==== 新增饮食记录崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      
+      errorMessage.value = '提交崩溃: $e';
       return false;
     } finally {
       isSubmitting.value = false;
@@ -97,8 +109,13 @@ class FoodRecordController extends GetxController {
         errorMessage.value = resp.message;
         return false;
       }
-    } catch (e) {
-      errorMessage.value = '删除失败，请检查网络';
+    } catch (e, stackTrace) {
+      // 🚨 【核心修复点】
+      debugPrint('==== 删除饮食记录崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      
+      errorMessage.value = '删除崩溃: $e';
       return false;
     }
   }

@@ -26,6 +26,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _registerConfirmCtrl = TextEditingController();
 
   late final AuthController _authController;
+  final RegExp _emailPattern =
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
   @override
   void initState() {
@@ -115,7 +117,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             TextFormField(
               controller: _loginAccountCtrl,
               decoration: const InputDecoration(
-                labelText: '手机号或邮箱',
+                labelText: '用户名或邮箱',
                 prefixIcon: Icon(Icons.person_outline),
               ),
               validator: (value) {
@@ -192,7 +194,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               controller: _registerAccountCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: '手机号或邮箱',
+                labelText: '邮箱',
                 prefixIcon: Icon(Icons.person_outline),
                 hintText: '11位手机号 或 邮箱地址',
               ),
@@ -205,7 +207,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               },
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return '账号不能为空';
+                  return '邮箱不能为空';
+                }
+                if (!_emailPattern.hasMatch(value.trim())) {
+                  return '请输入合法邮箱，例如 test@example.com';
                 }
                 final v = value.trim();
                 final isPhone = RegExp(r'^1[3-9]\d{9}$').hasMatch(v);
@@ -280,7 +285,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     if (!(_loginFormKey.currentState?.validate() ?? false)) {
       return;
     }
-    final ok = await _authController.loginWithMock(
+    final ok = await _authController.login(
       account: _loginAccountCtrl.text.trim(),
       password: _loginPasswordCtrl.text,
     );
@@ -298,9 +303,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     if (!(_registerFormKey.currentState?.validate() ?? false)) {
       return;
     }
-    final ok = await _authController.registerWithMock(
+    final ok = await _authController.register(
       nickname: _registerNicknameCtrl.text.trim(),
-      account: _registerAccountCtrl.text.trim(),
+      email: _registerAccountCtrl.text.trim(),
       password: _registerPasswordCtrl.text,
       confirmPassword: _registerConfirmCtrl.text,
     );
@@ -314,3 +319,4 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     }
   }
 }
+

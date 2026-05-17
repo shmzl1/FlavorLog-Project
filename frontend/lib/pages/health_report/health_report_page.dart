@@ -7,6 +7,9 @@ import '../../components/stat_tile.dart';
 import '../../controllers/health_report_controller.dart';
 import '../../models/health_model.dart';
 
+/// [HealthReportPage] 是健康报告的主页面。
+/// 使用了 [DefaultTabController] 实现顶部 Tab 切换功能，
+/// 包含“周报”、“红黑榜”和“餐后反馈”三个主要模块。
 class HealthReportPage extends StatelessWidget {
   const HealthReportPage({super.key});
 
@@ -40,6 +43,10 @@ class HealthReportPage extends StatelessWidget {
 
 // ── 周报 Tab ─────────────────────────────────────────────────────────────────
 
+/// [_WeeklyReportTab] 展示用户本周的健康数据摘要，包括：
+/// 1. 日均热量、蛋白质等核心指标
+/// 2. 一周热量趋势图
+/// 3. 健康警告和改善建议
 class _WeeklyReportTab extends StatelessWidget {
   const _WeeklyReportTab({required this.controller});
   final HealthReportController controller;
@@ -47,10 +54,13 @@ class _WeeklyReportTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      // 加载中状态
       if (controller.isLoadingReport.value) {
         return const Center(child: CircularProgressIndicator());
       }
+      
       final report = controller.weeklyReport.value;
+      // 空数据状态
       if (report == null) {
         return EmptyState(
           icon: Icons.bar_chart_outlined,
@@ -60,6 +70,7 @@ class _WeeklyReportTab extends StatelessWidget {
           onAction: controller.loadWeeklyReport,
         );
       }
+      
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -69,14 +80,19 @@ class _WeeklyReportTab extends StatelessWidget {
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
           const SizedBox(height: 16),
+          
           // 核心指标
           SectionCard(
             title: '核心指标',
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              mainAxisExtent: 90,
+            // 【修复点】：使用基础 GridView + SliverGridDelegateWithFixedCrossAxisCount 
+            // 替代 GridView.count，从而合法使用 mainAxisExtent。
+            child: GridView(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                mainAxisExtent: 90, // 固定主轴(高度)尺寸
+              ),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
@@ -96,7 +112,8 @@ class _WeeklyReportTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // 热量趋势
+          
+          // 热量趋势图
           if (report.calorieTrend.isNotEmpty) ...[
             SectionCard(
               title: '本周热量趋势',
@@ -104,7 +121,8 @@ class _WeeklyReportTab extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          // 警告
+          
+          // 健康警告提醒
           if (report.warnings.isNotEmpty) ...[
             SectionCard(
               title: '健康提醒',
@@ -130,7 +148,8 @@ class _WeeklyReportTab extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          // 建议
+          
+          // 改善建议
           if (report.suggestions.isNotEmpty) ...[
             SectionCard(
               title: '改善建议',
@@ -195,6 +214,7 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+/// [_CalorieTrendChart] 是一个简易的柱状图组件，用于展示本周每天的热量摄入变化
 class _CalorieTrendChart extends StatelessWidget {
   const _CalorieTrendChart({required this.trend});
   final List<CalorieTrendPoint> trend;
@@ -202,6 +222,7 @@ class _CalorieTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (trend.isEmpty) return const SizedBox.shrink();
+    // 计算最大热量值，作为柱状图 100% 高度的基准
     final maxCal = trend.map((t) => t.calories).reduce((a, b) => a > b ? a : b);
 
     return SizedBox(
@@ -223,6 +244,7 @@ class _CalorieTrendChart extends StatelessWidget {
                     style: const TextStyle(fontSize: 9, color: Colors.grey),
                   ),
                   const SizedBox(height: 2),
+                  // 利用 FractionallySizedBox 按照比例绘制柱子的高度
                   FractionallySizedBox(
                     heightFactor: ratio.clamp(0.05, 1.0),
                     child: Container(
@@ -248,6 +270,8 @@ class _CalorieTrendChart extends StatelessWidget {
 
 // ── 红黑榜 Tab ───────────────────────────────────────────────────────────────
 
+/// [_BlacklistTab] 红黑榜模块，根据用户的饮食习惯和健康反馈，
+/// 智能推荐有益健康的食物（红榜），并列出可能引发不适的食物（黑榜）。
 class _BlacklistTab extends StatelessWidget {
   const _BlacklistTab({required this.controller});
   final HealthReportController controller;
@@ -372,6 +396,7 @@ class _RedItemCard extends StatelessWidget {
 
 // ── 餐后反馈 Tab ─────────────────────────────────────────────────────────────
 
+/// [_FeedbackTab] 展示用户自己记录的餐后反馈列表，包含疲劳、腹胀度以及综合感受。
 class _FeedbackTab extends StatelessWidget {
   const _FeedbackTab({required this.controller});
   final HealthReportController controller;
@@ -448,6 +473,7 @@ class _FeedbackCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
+                // 自定义标签展示各个健康反馈数值
                 _LevelChip(
                     label: '腹胀',
                     level: feedback.bloatingLevel,
@@ -497,6 +523,7 @@ class _LevelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 动态根据级别配置颜色
     final color = level <= 1
         ? Colors.green
         : level <= 3
@@ -514,6 +541,8 @@ class _LevelChip extends StatelessWidget {
 
 // ── 新增反馈底部表单 ──────────────────────────────────────────────────────────
 
+/// [_AddFeedbackSheet] 新增餐后健康反馈的底部弹窗表单。
+/// 支持用户输入对应的餐次 ID，记录多维度生理指标（疲劳、心情、腹胀及额外症状）。
 class _AddFeedbackSheet extends StatefulWidget {
   const _AddFeedbackSheet({required this.controller});
   final HealthReportController controller;
@@ -567,7 +596,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
+          bottom: MediaQuery.viewInsetsOf(context).bottom, // 避开软键盘
           left: 16,
           right: 16,
           top: 16,
@@ -593,6 +622,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                // 关联饮食记录ID输入
                 TextFormField(
                   controller: _recordIdCtrl,
                   decoration: const InputDecoration(
@@ -605,6 +635,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                       int.tryParse(v ?? '') == null ? '请填写有效的记录 ID' : null,
                 ),
                 const SizedBox(height: 12),
+                // 感受下拉框
                 DropdownButtonFormField<String>(
                   value: _mood,
                   decoration: const InputDecoration(
@@ -615,6 +646,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                   onChanged: (v) => setState(() => _mood = v!),
                 ),
                 const SizedBox(height: 12),
+                // 滑动条控件
                 _SliderField(
                   label: '腹胀程度',
                   value: _bloatingLevel,
@@ -631,6 +663,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                 const SizedBox(height: 12),
                 const Text('其他症状'),
                 const SizedBox(height: 4),
+                // 多选症状标签
                 Wrap(
                   spacing: 8,
                   children: _symptomOptions.map((s) {
@@ -657,6 +690,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // 提交按钮
                 Obx(
                   () => SizedBox(
                     width: double.infinity,
@@ -685,8 +719,10 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
     );
   }
 
+  /// 表单提交逻辑：校验通过后调取 Controller 接口发送数据
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    
     final ok = await widget.controller.submitFeedback(
       foodRecordId: int.parse(_recordIdCtrl.text.trim()),
       bloatingLevel: _bloatingLevel,
@@ -696,6 +732,8 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
           _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       extraSymptoms: _symptoms.toList(),
     );
+    
+    // 成功后关闭弹窗并提示
     if (ok && mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -709,6 +747,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
   }
 }
 
+/// [_SliderField] 自定义滑块组件，用于快速评估 1-5 等级的健康状况
 class _SliderField extends StatelessWidget {
   const _SliderField({
     required this.label,

@@ -1,5 +1,6 @@
 ﻿import 'dart:convert';
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../services/api/api_client.dart';
@@ -18,20 +19,22 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _restoreSession();
+    restoreSession();
   }
 
   /// App 启动时恢复登录态
-  Future<void> _restoreSession() async {
+  Future<void> restoreSession() async {
     final saved = await TokenStorage.getToken();
     if (saved != null && saved.isNotEmpty) {
       token.value = saved;
       isLoggedIn.value = true;
+      return;
     }
+    isLoggedIn.value = false;
   }
 
   /// 登录（调用真实后端）
-  Future<bool> loginWithMock({
+  Future<bool> login({
     required String account,
     required String password,
   }) async {
@@ -66,9 +69,6 @@ class AuthController extends GetxController {
         nickname.value = (user['nickname'] as String?) ?? '用户';
         isLoggedIn.value = true;
         return true;
-      } else {
-        errorMessage.value = body['message'] as String? ?? '登录失败';
-        return false;
       }
     } on DioException catch (e) {
       errorMessage.value = _extractDetail(e, '登录失败');
@@ -87,20 +87,25 @@ class AuthController extends GetxController {
   }
 
   /// 注册（调用真实后端）
-  Future<bool> registerWithMock({
+  Future<bool> register({
     required String nickname,
-    required String account,
+    required String email,
     required String password,
     required String confirmPassword,
   }) async {
     clearError();
+    final emailInput = email.trim().toLowerCase();
 
     if (nickname.trim().isEmpty) {
       errorMessage.value = '昵称不能为空';
       return false;
     }
-    if (account.trim().isEmpty) {
-      errorMessage.value = '账号不能为空';
+    if (emailInput.isEmpty) {
+      errorMessage.value = '邮箱不能为空';
+      return false;
+    }
+    if (!_isValidEmail(emailInput)) {
+      errorMessage.value = '请输入合法邮箱，例如 test@example.com';
       return false;
     }
     if (password.isEmpty) {
@@ -145,8 +150,17 @@ class AuthController extends GetxController {
         this.nickname.value = (user['nickname'] as String?) ?? nickname.trim();
         isLoggedIn.value = true;
         return true;
-      } else {
-        errorMessage.value = body['message'] as String? ?? '注册失败';
+      }
+      errorMessage.value = body['message'] as String? ?? '注册失败';
+      return false;
+    } on DioException catch (e, stackTrace) {
+      debugPrint('==== 注册崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 422) {
+        errorMessage.value = '注册信息格式不正确，请检查邮箱、密码和昵称';
         return false;
       }
     } on DioException catch (e) {

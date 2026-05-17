@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-
 import '../../models/fridge_item_model.dart';
 import '../../models/api_response.dart';
 import 'api_client.dart';
@@ -41,7 +40,8 @@ class FridgeService {
   }
 
   /// 获取冰箱食材列表 GET /fridge/items
-  Future<ApiResponse<Map<String, dynamic>>> getItems({
+  /// 💡 修复：修改返回类型为 List<FridgeItemModel> 并增强解析兼容性
+  Future<ApiResponse<List<FridgeItemModel>>> getItems({
     int page = 1,
     int pageSize = 20,
     String? category,
@@ -56,7 +56,22 @@ class FridgeService {
     final resp =
         await _client.get(ApiEndpoints.fridgeItems, queryParameters: params);
     final json = resp.data as Map<String, dynamic>;
-    return ApiResponse.fromJson(json, (raw) => raw as Map<String, dynamic>);
+
+    return ApiResponse.fromJson(json, (raw) {
+      // 兼容多种后端返回格式
+      List<dynamic> listData = [];
+      if (raw is List) {
+        listData = raw;
+      } else if (raw is Map && raw.containsKey('items')) {
+        listData = raw['items'] as List<dynamic>? ?? [];
+      } else if (raw is Map && raw.containsKey('data')) {
+        listData = raw['data'] as List<dynamic>? ?? [];
+      }
+      
+      return listData
+          .map((e) => FridgeItemModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    });
   }
 
   /// 修改冰箱食材 PUT /fridge/items/{item_id}
@@ -113,7 +128,6 @@ class FridgeService {
   }
 
   /// 视频扫描录入冰箱食材 POST /fridge/scan
-  /// 上传视频，后端 YOLO 检测后直接存入数据库，返回已保存的食材列表
   Future<ApiResponse<List<FridgeItemModel>>> scanFromVideo(
     String filePath,
   ) async {
