@@ -1,4 +1,6 @@
-﻿import 'package:get/get.dart';
+﻿import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:get/get.dart';
 
 import '../services/api/api_client.dart';
 import '../services/api/api_endpoints.dart';
@@ -68,12 +70,20 @@ class AuthController extends GetxController {
         errorMessage.value = body['message'] as String? ?? '登录失败';
         return false;
       }
+    } on DioException catch (e) {
+      errorMessage.value = _extractDetail(e, '登录失败');
+      return false;
     } catch (e) {
       errorMessage.value = '网络请求失败，请检查连接';
       return false;
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// 是否是11位中国大陆手机号
+  static bool isChinesePhone(String s) {
+    return RegExp(r'^1[3-9]\d{9}$').hasMatch(s);
   }
 
   /// 注册（调用真实后端）
@@ -108,14 +118,22 @@ class AuthController extends GetxController {
 
     isLoading.value = true;
     try {
+      // 手机号用伪邮箱过渡，等后端支持 phone 字段后替换
+      final acc = account.trim();
+      final isPhone = isChinesePhone(acc);
+      final Map<String, dynamic> payload = {
+        'username': acc,
+        'password': password,
+        'nickname': nickname.trim(),
+      };
+      if (isPhone) {
+        payload['phone'] = acc;
+      } else {
+        payload['email'] = acc;
+      }
       final resp = await _client.post(
         ApiEndpoints.register,
-        data: {
-          'username': account.trim(),
-          'email': account.trim(),
-          'password': password,
-          'nickname': nickname.trim(),
-        },
+        data: payload,
       );
       final body = resp.data as Map<String, dynamic>;
       if (body['code'] == 0) {
@@ -131,12 +149,50 @@ class AuthController extends GetxController {
         errorMessage.value = body['message'] as String? ?? '注册失败';
         return false;
       }
+    } on DioException catch (e) {
+      errorMessage.value = _extractDetail(e, '注册失败');
+      return false;
     } catch (e) {
       errorMessage.value = '网络请求失败，请检查连接';
       return false;
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// 从 DioException 安全提取后端返回的错误信息
+  /// 后端统一格式：{"code":..., "message":"...", "errors":[{"field":"...","reason":"..."}]}
+  String _extractDetail(DioException e, String fallback) {
+    dynamic data = e.response?.data;
+
+    // 响应体是原始字符串时先尝试解析
+    if (data is String && data.isNotEmpty) {
+      try {
+        data = jsonDecode(data);
+      } catch (_) {}
+    }
+
+    if (data is Map) {
+      // 1. 业务错误：message 字段（如"该手机号已经被注册"）
+      final msg = data['message'];
+      if (msg is String && msg.isNotEmpty && msg != '参数错误') return msg;
+
+      // 2. 参数校验错误：errors[0].reason（如"手机号格式不正确"）
+      final errors = data['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        final first = errors.first;
+        if (first is Map) {
+          final reason = first['reason'];
+          if (reason is String && reason.isNotEmpty) return reason;
+        }
+      }
+
+      // 3. 兜底用 message
+      if (msg is String && msg.isNotEmpty) return msg;
+    }
+
+    if (e.response == null) return '网络请求失败，请检查连接';
+    return fallback;
   }
 
   void clearError() {

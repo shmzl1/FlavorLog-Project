@@ -190,13 +190,29 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             const SizedBox(height: 12),
             TextFormField(
               controller: _registerAccountCtrl,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: '手机号或邮箱',
                 prefixIcon: Icon(Icons.person_outline),
+                hintText: '11位手机号 或 邮箱地址',
               ),
+              onChanged: (v) {
+                // 纯数字时切换为手机号键盘
+                if (RegExp(r'^\d*$').hasMatch(v)) {
+                  // 不能在 onChanged 里 setState keyboardType，
+                  // 用 autofillHints 引导即可
+                }
+              },
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return '账号不能为空';
+                }
+                final v = value.trim();
+                final isPhone = RegExp(r'^1[3-9]\d{9}$').hasMatch(v);
+                final isEmail = v.contains('@') &&
+                    RegExp(r'^[\w.+-]+@[\w-]+\.[\w.]+$').hasMatch(v);
+                if (!isPhone && !isEmail) {
+                  return '请输入有效的邮箱或11位中国大陆手机号';
                 }
                 return null;
               },
