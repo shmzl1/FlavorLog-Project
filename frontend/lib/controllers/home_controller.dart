@@ -1,6 +1,9 @@
 ﻿import 'package:get/get.dart';
 
 class HomeController extends GetxController {
+  // 【新增】：配合新版高颜值首页的打招呼功能，补充 username 变量
+  final RxString username = ''.obs;
+
   final RxString welcomeText = '你好，欢迎回来'.obs;
   final RxString todaySummary = '今天已记录 2 餐，营养结构较均衡。'.obs;
 
@@ -69,4 +72,12 @@ class HomeController extends GetxController {
     '今天蛋白质摄入表现不错，保持当前节奏。',
     '记得在睡前 2 小时内避免高糖零食。',
   ].obs;
+
+  // 【新增】：GetX 的初始化生命周期
+  @override
+  void onInit() {
+    super.onInit();
+    // 这里可以模拟从本地存储或 API 获取用户名，留空的话首页会自动显示“美食探索家”
+    // username.value = "你的名字"; 
+  }
 }

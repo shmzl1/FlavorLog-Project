@@ -19,6 +19,12 @@ class AppRoutes {
   static const String community = '/community';
   static const String profile = '/profile';
 
+  // 【新增】：为了兼容高颜值首页的大写常量调用，增加路由别名映射
+  static const String HEALTH_REPORT = healthReport;
+  static const String FOOD_RECORD = foodRecord;
+  static const String CYBER_FRIDGE = cyberFridge;
+  static const String COMMUNITY = community;
+
   static final List<GetPage<dynamic>> pages = [
     GetPage(name: authGate, page: () => const AuthGatePage()),
     GetPage(name: auth, page: () => const AuthPage()),
