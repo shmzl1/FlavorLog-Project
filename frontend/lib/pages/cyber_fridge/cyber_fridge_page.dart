@@ -5,11 +5,11 @@ import 'package:get/get.dart';
 import 'dart:ui';
 import '../../controllers/fridge_controller.dart';
 
-/// 【类说明：赛博冰箱 (Cyber Fridge) 现代高颜值版】
+/// 【类说明：赛博冰箱 (Cyber Fridge) 现代高颜值全交互版】
 /// 核心视觉设计：
 /// 1. 采用清爽的“马卡龙绿”为主色调，呼应“新鲜、健康、生命力”的食材管理理念。
 /// 2. 顶部大看板展示“保质期预警”，下方采用双列瀑布流 / Bento Grid 展示具体食材。
-/// 3. 每个食材卡片带有拟物化的进度条，直观反映新鲜度。
+/// 3. 【新升级】：激活了真实的分类 Tab 联动过滤引擎，告别花瓶 UI。
 class CyberFridgePage extends GetView<FridgeController> {
   const CyberFridgePage({Key? key}) : super(key: key);
 
@@ -17,38 +17,144 @@ class CyberFridgePage extends GetView<FridgeController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      // 底部悬浮的炫酷添加按钮
+      // 底部悬浮的炫酷添加按钮（已激活点击交互）
       floatingActionButton: _buildAddButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        slivers: [
-          // 1. 沉浸式毛玻璃导航栏
-          _buildSliverAppBar(context),
-          
-          // 2. 核心看板区 (保质期预警 & 食材总览)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: _buildOverviewBoard(),
-            ),
-          ),
-          
-          // 3. 分类标签栏
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: _buildCategoryChips(),
-            ),
-          ),
-          
-          // 4. 食材 Bento 网格区
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 100), // 底部留白防止被 FAB 遮挡
-            sliver: _buildFridgeGrid(),
-          ),
+      // 核心内容区由独立的过滤引擎组件接管
+      body: const _FridgeView(),
+    );
+  }
+
+  /// 【组件：底部悬浮炫彩添加按钮】
+  Widget _buildAddButton() {
+    return Container(
+      height: 60,
+      width: 200,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1C1C1E), Color(0xFF3A3A3C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8)),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: () {
+            // 【交互修复】：唤起极具科技感的浮窗，取代此前的空无响应
+            Get.snackbar(
+              "AI 视觉录入开启",
+              "「智能小票扫描」与「AI 视觉识别食材」功能即将装载，敬请期待！",
+              snackPosition: SnackPosition.TOP,
+              backgroundColor: const Color(0xFF20BF6B),
+              colorText: Colors.white,
+              margin: const EdgeInsets.all(16),
+              borderRadius: 16,
+              icon: const Icon(Icons.document_scanner_rounded, color: Colors.white),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.add_rounded, color: Colors.white, size: 24),
+              SizedBox(width: 8),
+              Text("录入新食材", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 【高级独立组件：带真实过滤引擎的冰箱食材视图】
+/// 修复说明：
+/// 内部构建了带标签的 Mock 数据源，通过 _selectedCategory 状态变量，
+/// 实时驱动下方的 SliverGrid 进行智能洗牌过滤。
+class _FridgeView extends StatefulWidget {
+  const _FridgeView({Key? key}) : super(key: key);
+
+  @override
+  State<_FridgeView> createState() => _FridgeViewState();
+}
+
+class _FridgeViewState extends State<_FridgeView> {
+  // 核心状态：当前选中的分类标签（默认展示全部）
+  String _selectedCategory = "全部";
+
+  // 固定的横向分类池
+  final List<String> _categories = ["全部", "🥬 蔬菜", "🥩 肉类", "🥚 蛋奶", "🍎 水果"];
+
+  // 【扩充版业务数据源】：每一项都打上了专属的 category 基因，用于与 Tab 进行比对
+  final List<Map<String, dynamic>> _mockItems = [
+    {'name': '西蓝花', 'icon': '🥦', 'days': 2, 'qty': '500g', 'status': 'warning', 'category': '🥬 蔬菜'},
+    {'name': '三文鱼', 'icon': '🍣', 'days': 1, 'qty': '200g', 'status': 'danger', 'category': '🥩 肉类'},
+    {'name': '走地鸡蛋', 'icon': '🥚', 'days': 12, 'qty': '10个', 'status': 'safe', 'category': '🥚 蛋奶'},
+    {'name': '全脂鲜牛奶', 'icon': '🥛', 'days': 5, 'qty': '1L', 'status': 'safe', 'category': '🥚 蛋奶'},
+    {'name': '智利牛油果', 'icon': '🥑', 'days': 3, 'qty': '3个', 'status': 'warning', 'category': '🍎 水果'},
+    {'name': '冷鲜鸡胸肉', 'icon': '🥩', 'days': 30, 'qty': '1kg', 'status': 'safe', 'category': '🥩 肉类'},
+    {'name': '水洗菠菜', 'icon': '🥬', 'days': 4, 'qty': '2把', 'status': 'safe', 'category': '🥬 蔬菜'},
+    {'name': '山东红富士', 'icon': '🍎', 'days': 15, 'qty': '6个', 'status': 'safe', 'category': '🍎 水果'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    // 【核心过滤引擎】：利用 where 实时滤出符合当前标签的食材
+    final filteredItems = _selectedCategory == "全部"
+        ? _mockItems
+        : _mockItems.where((item) => item['category'] == _selectedCategory).toList();
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      slivers: [
+        // 1. 沉浸式毛玻璃导航栏
+        _buildSliverAppBar(context),
+        
+        // 2. 核心看板区 (保质期预警 & 食材总览)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: _buildOverviewBoard(),
+          ),
+        ),
+        
+        // 3. 动态分类交互标签栏
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: _buildCategoryChips(),
+          ),
+        ),
+        
+        // 4. 食材 Bento 网格区 (接入智能防空状态)
+        if (filteredItems.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.kitchen_rounded, size: 60, color: const Color(0xFF8E8E93).withOpacity(0.3)),
+                    const SizedBox(height: 16),
+                    Text("你的冰箱里暂时没有【$_selectedCategory】哦", 
+                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.bold)
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 100), // 底部留白防止被 FAB 遮挡
+            sliver: _buildFridgeGrid(filteredItems),
+          ),
+      ],
     );
   }
 
@@ -62,7 +168,7 @@ class CyberFridgePage extends GetView<FridgeController> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1C1C1E), size: 20),
-        onPressed: () => Get.back(), 
+        onPressed: () => Get.back(),
       ),
       flexibleSpace: ClipRect(
         child: BackdropFilter(
@@ -85,7 +191,6 @@ class CyberFridgePage extends GetView<FridgeController> {
   }
 
   /// 【组件：冰箱状态总览大看板】
-  /// 作用：展示快过期的食物和食材总数，采用与首页呼应的渐变色。
   Widget _buildOverviewBoard() {
     return Container(
       width: double.infinity,
@@ -129,13 +234,12 @@ class CyberFridgePage extends GetView<FridgeController> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "共收纳 15 种食材",
+                  "共收纳 ${_mockItems.length} 种食材",
                   style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
                 ),
               ],
             ),
           ),
-          // 装饰性微缩图标
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -149,35 +253,42 @@ class CyberFridgePage extends GetView<FridgeController> {
     );
   }
 
-  /// 【组件：横向滚动分类标签 (Apple Health 风格)】
+  /// 【组件：支持点击交互的分类标签 (Apple Health 风格)】
   Widget _buildCategoryChips() {
-    final List<String> categories = ["全部", "🥬 蔬菜", "🥩 肉类", "🥚 蛋奶", "🍎 水果"];
     return SizedBox(
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: categories.length,
+        itemCount: _categories.length,
         itemBuilder: (context, index) {
-          final isSelected = index == 0; // 默认选中第一个
-          return Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF1C1C1E) : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isSelected 
-                  ? [BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] 
-                  : [BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
-            ),
-            child: Text(
-              categories[index],
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF8E8E93),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                fontSize: 14,
+          final isSelected = _categories[index] == _selectedCategory;
+          return GestureDetector(
+            onTap: () {
+              // 【交互修复】：点击即时重塑 _selectedCategory 状态，触发网格刷新
+              setState(() {
+                _selectedCategory = _categories[index];
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: isSelected 
+                    ? [BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] 
+                    : [BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Text(
+                _categories[index],
+                style: TextStyle(
+                  color: isSelected ? Colors.white : const Color(0xFF8E8E93),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
           );
@@ -186,42 +297,30 @@ class CyberFridgePage extends GetView<FridgeController> {
     );
   }
 
-  /// 【组件：双列网格食材卡片】
-  Widget _buildFridgeGrid() {
-    // 这里使用模拟数据构建极致的 UI 展示，后期可替换为 controller.items
-    final List<Map<String, dynamic>> mockItems = [
-      {'name': '西蓝花', 'icon': '🥦', 'days': 2, 'qty': '500g', 'status': 'warning'},
-      {'name': '三文鱼', 'icon': '🍣', 'days': 1, 'qty': '200g', 'status': 'danger'},
-      {'name': '鸡蛋', 'icon': '🥚', 'days': 12, 'qty': '10个', 'status': 'safe'},
-      {'name': '全脂牛奶', 'icon': '🥛', 'days': 5, 'qty': '1L', 'status': 'safe'},
-      {'name': '牛油果', 'icon': '🥑', 'days': 3, 'qty': '3个', 'status': 'warning'},
-      {'name': '鸡胸肉', 'icon': '🥩', 'days': 30, 'qty': '1kg', 'status': 'safe'},
-    ];
-
+  /// 【组件：双列网格食材卡片 (接收过滤后的动态数据)】
+  Widget _buildFridgeGrid(List<Map<String, dynamic>> items) {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 双列排版
-        mainAxisSpacing: 16, // 纵向间距
-        crossAxisSpacing: 16, // 横向间距
-        childAspectRatio: 0.82, // 卡片长宽比，打造微距立体的效果
+        crossAxisCount: 2, 
+        mainAxisSpacing: 16, 
+        crossAxisSpacing: 16, 
+        childAspectRatio: 0.82, 
       ),
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final item = mockItems[index];
+          final item = items[index];
           return _buildItemCard(item);
         },
-        childCount: mockItems.length,
+        childCount: items.length,
       ),
     );
   }
 
   /// 【复杂组件：单个食材数据卡片】
-  /// 自动根据保质期天数计算进度条和颜色（红、黄、绿）
   Widget _buildItemCard(Map<String, dynamic> item) {
-    // 根据状态配置颜色
-    Color accentColor = const Color(0xFF20BF6B); // 默认绿色
-    if (item['status'] == 'warning') accentColor = const Color(0xFFFFCC00); // 临近黄色
-    if (item['status'] == 'danger') accentColor = const Color(0xFFFF4757); // 过期红色
+    Color accentColor = const Color(0xFF20BF6B); 
+    if (item['status'] == 'warning') accentColor = const Color(0xFFFFCC00); 
+    if (item['status'] == 'danger') accentColor = const Color(0xFFFF4757); 
 
     return Container(
       decoration: BoxDecoration(
@@ -235,7 +334,6 @@ class CyberFridgePage extends GetView<FridgeController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 顶部：Emoji图标与余量
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -250,10 +348,8 @@ class CyberFridgePage extends GetView<FridgeController> {
             ],
           ),
           const Spacer(),
-          // 食材名称
           Text(item['name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E))),
           const SizedBox(height: 8),
-          // 底部：保质期进度与倒计时
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -264,7 +360,6 @@ class CyberFridgePage extends GetView<FridgeController> {
             ],
           ),
           const SizedBox(height: 6),
-          // 新鲜度进度条
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -275,43 +370,6 @@ class CyberFridgePage extends GetView<FridgeController> {
             ),
           )
         ],
-      ),
-    );
-  }
-
-  /// 【组件：底部悬浮炫彩添加按钮】
-  Widget _buildAddButton() {
-    return Container(
-      height: 60,
-      width: 200,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1C1C1E), Color(0xFF3A3A3C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(30),
-          onTap: () {
-            // 后期可对接扫码/录入弹窗
-            // Get.bottomSheet(...)
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.add_rounded, color: Colors.white, size: 24),
-              SizedBox(width: 8),
-              Text("录入新食材", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
       ),
     );
   }

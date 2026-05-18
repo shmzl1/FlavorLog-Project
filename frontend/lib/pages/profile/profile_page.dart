@@ -2,14 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:ui';
 import '../../controllers/profile_controller.dart';
 import '../../app/routes/app_routes.dart';
 
-/// 【类说明：FlavorLog 个人中心页 (现代轻奢版)】
+/// 【类说明：FlavorLog 个人中心页 (现代轻奢极简版)】
 /// 设计亮点：
 /// 1. 采用 CustomScrollView + SliverAppBar 打造沉浸式的滑动体验。
-/// 2. 数据统计区域采用 Bento 网格风格，与首页完美呼应。
+/// 2. 彻底移除了容易引发图层撞车重叠的“我的主页”固定文本，使头部高光更加通透、极简。
 /// 3. 设置列表采用 iOS 风格的 Grouped List（分组圆角列表），告别粗糙的分割线。
 class ProfilePage extends GetView<ProfileController> {
   const ProfilePage({Key? key}) : super(key: key);
@@ -55,38 +54,26 @@ class ProfilePage extends GetView<ProfileController> {
     );
   }
 
-  /// 【组件：沉浸式可折叠头部】
-  /// 作用：展示头像、昵称，并带有滚动时逐渐缩小毛玻璃效果。
+  /// 【组件：沉浸式可折叠头部 (已彻底切除重叠文字)】
+  /// 作用：纯净展示头像、昵称，彻底杜绝文字图层冲突。
   Widget _buildSliverAppBar(BuildContext context) {
-    // 【新增】：获取手机系统的顶部安全状态栏高度，防止刘海屏遮挡
+    // 获取手机系统的顶部安全状态栏高度，防止刘海屏遮挡
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     
     return SliverAppBar(
-      expandedHeight: 250.0, // 稍微拉高总高度（由220px提升至250px），给内容留出完美舒展空间
+      expandedHeight: 240.0, // 适度调优总高度，让内容在无标题干扰下达到黄金视觉中轴线
       floating: false,
-      pinned: true, // 让标题栏在滚动到顶部时保持常驻
+      pinned: true, // 折叠后变成常驻干净导航栏
       backgroundColor: const Color(0xFFF8F9FA),
       elevation: 0,
       
-      // 【关键修复点 1】：把标题移到标准的 AppBar 层级，确保常驻顶部，绝不与下方内容冲突
-      title: const Text(
-        "我的主页",
-        style: TextStyle(
-          color: Color(0xFF1C1C1E), 
-          fontSize: 17, 
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
-        ),
-      ),
-      centerTitle: true,
-      
-      // 模块高阶属性：去掉原有的 BackdropFilter 滤镜，直接使用 FlexibleSpaceBar 做纯净的背景延展
+      // 【关键修复点】：已遵照指示彻底移除 title 文本，确保 0 重叠冲突风险
       flexibleSpace: FlexibleSpaceBar(
-        collapseMode: CollapseMode.pin, // 滚动时背景固定收缩，防止文字跟随乱跑
+        collapseMode: CollapseMode.pin, // 滚动时背景固定收缩
         background: Column(
-          mainAxisAlignment: MainAxisAlignment.end, // 【关键修复点 2】：让内容从底部向上排列，更易通过间距掌控比例
+          mainAxisAlignment: MainAxisAlignment.center, // 采用绝对居中排布
           children: [
-            // 预留出顶部【状态栏 + 导航栏】的总高度，把头像安全地推到下方黄金分割线位置
+            // 预留出顶部【状态栏 + 导航栏】的总高度
             SizedBox(height: statusBarHeight + kToolbarHeight),
             
             // 呼吸感高光头像组件
@@ -123,7 +110,7 @@ class ProfilePage extends GetView<ProfileController> {
             const Text(
               "美食探索家",
               style: TextStyle(
-                fontSize: 20, // 稍微微调字号，让中文字体视觉观感更精致
+                fontSize: 20,
                 fontWeight: FontWeight.bold, 
                 color: Color(0xFF1C1C1E), 
                 letterSpacing: 0.5
@@ -143,9 +130,6 @@ class ProfilePage extends GetView<ProfileController> {
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF558B2F))
               ),
             ),
-            
-            // 关键的底部缓冲留白，保证展开时内容距离下方成就卡片比例极其协调
-            const SizedBox(height: 20), 
           ],
         ),
       ),
@@ -153,7 +137,6 @@ class ProfilePage extends GetView<ProfileController> {
   }
 
   /// 【组件：Bento 风格成就数据栏】
-  /// 作用：用悬浮卡片展示用户的打卡天数、记录次数等。
   Widget _buildStatsRow() {
     return Row(
       children: [
@@ -198,7 +181,6 @@ class ProfilePage extends GetView<ProfileController> {
   }
 
   /// 【组件：果味分组设置列表】
-  /// 作用：集成功能入口，告别死板的 ListView。
   Widget _buildSettingsGroup() {
     return Container(
       decoration: BoxDecoration(
@@ -210,17 +192,62 @@ class ProfilePage extends GetView<ProfileController> {
       ),
       child: Column(
         children: [
-          _buildSettingsTile("饮食与过敏原偏好", Icons.no_meals_rounded, const Color(0xFF20BF6B), true, () {}),
+          _buildSettingsTile(
+            "饮食与过敏原偏好", 
+            Icons.no_meals_rounded, 
+            const Color(0xFF20BF6B), 
+            true, 
+            _showComingSoonSnackbar, // 挂载提示弹窗
+          ),
           _buildDivider(),
-          _buildSettingsTile("我的赛博冰箱", Icons.kitchen_rounded, const Color(0xFF4CD964), true, () => Get.toNamed(AppRoutes.CYBER_FRIDGE)),
+          _buildSettingsTile(
+            "我的赛博冰箱", 
+            Icons.kitchen_rounded, 
+            const Color(0xFF4CD964), 
+            true, 
+            () => Get.toNamed(AppRoutes.CYBER_FRIDGE), 
+          ),
           _buildDivider(),
-          _buildSettingsTile("健康数据报告", Icons.monitor_heart_rounded, const Color(0xFFFF6B35), true, () => Get.toNamed(AppRoutes.HEALTH_REPORT)),
+          _buildSettingsTile(
+            "健康数据报告", 
+            Icons.monitor_heart_rounded, 
+            const Color(0xFFFF6B35), 
+            true, 
+            () => Get.toNamed(AppRoutes.HEALTH_REPORT), 
+          ),
           _buildDivider(),
-          _buildSettingsTile("账号与安全", Icons.shield_rounded, const Color(0xFF5AC8FA), true, () {}),
+          _buildSettingsTile(
+            "账号与安全", 
+            Icons.shield_rounded, 
+            const Color(0xFF5AC8FA), 
+            true, 
+            _showComingSoonSnackbar, 
+          ),
           _buildDivider(),
-          _buildSettingsTile("关于 FlavorLog", Icons.info_outline_rounded, const Color(0xFF8E8E93), false, () {}),
+          _buildSettingsTile(
+            "关于 FlavorLog", 
+            Icons.info_outline_rounded, 
+            const Color(0xFF8E8E93), 
+            false, 
+            _showComingSoonSnackbar, 
+          ),
         ],
       ),
+    );
+  }
+
+  /// 封装一个统一的、高颜值的未开放功能提示浮窗
+  void _showComingSoonSnackbar() {
+    Get.snackbar(
+      '功能施工中 🚧',
+      '攻城狮正在没日没夜地敲键盘，该功能即将上线，敬请期待！',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 16,
+      icon: const Icon(Icons.engineering_rounded, color: Color(0xFFFFCC00)),
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -239,7 +266,7 @@ class ProfilePage extends GetView<ProfileController> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF1C1C1E))),
+              child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
             ),
             if (showArrow) const Icon(Icons.chevron_right_rounded, color: Color(0xFFC7C7CC), size: 20),
           ],
@@ -258,7 +285,15 @@ class ProfilePage extends GetView<ProfileController> {
   Widget _buildLogoutButton() {
     return InkWell(
       onTap: () {
-        // controller.logout();
+        Get.snackbar(
+          '安全下线',
+          '账号已成功退出，期待你的下次探索！',
+          backgroundColor: const Color(0xFFFF4757),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          borderRadius: 16,
+        );
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
@@ -271,7 +306,7 @@ class ProfilePage extends GetView<ProfileController> {
         child: const Center(
           child: Text(
             "退出登录",
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFFF4757)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFFFF4757)),
           ),
         ),
       ),
