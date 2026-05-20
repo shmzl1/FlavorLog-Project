@@ -9,10 +9,12 @@ class ApiClient {
       BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
         connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 30),
         headers: {
           'Content-Type': 'application/json',
         },
+        // 4xx 应由业务层判断（后端返回的 400 中有可读错误信息）
+        validateStatus: (status) => (status ?? 0) < 500,
       ),
     );
 

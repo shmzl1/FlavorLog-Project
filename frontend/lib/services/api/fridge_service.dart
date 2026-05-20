@@ -137,16 +137,57 @@ class FridgeService {
         contentType: DioMediaType('video', 'mp4'),
       ),
     });
-    final resp = await _client.dio.post<dynamic>(
-      ApiEndpoints.fridgeScan,
-      data: formData,
-    );
-    final json = resp.data as Map<String, dynamic>;
-    return ApiResponse.fromJson(
-      json,
-      (raw) => (raw as List<dynamic>)
-          .map((e) => FridgeItemModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
+    try {
+      final resp = await _client.dio.post<dynamic>(
+        ApiEndpoints.fridgeScan,
+        data: formData,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      final json = resp.data as Map<String, dynamic>;
+      return ApiResponse.fromJson(
+        json,
+        (raw) => (raw as List<dynamic>)
+            .map((e) => FridgeItemModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+    } on DioException catch (e) {
+      final serverMsg = (e.response?.data as Map<String, dynamic>?)?['message']
+          as String?;
+      throw Exception(serverMsg ?? '网络错误: ${e.message}');
+    }
+  }
+
+  /// 仅识别不入库（preview=true），返回预览食材列表供前端确认
+  Future<ApiResponse<List<FridgeItemModel>>> recognizeFromVideo(
+    String filePath,
+  ) async {
+    final formData = FormData.fromMap({
+      'video': await MultipartFile.fromFile(
+        filePath,
+        contentType: DioMediaType('video', 'mp4'),
+      ),
+    });
+    try {
+      final resp = await _client.dio.post<dynamic>(
+        '${ApiEndpoints.fridgeScan}?preview=true',
+        data: formData,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      final json = resp.data as Map<String, dynamic>;
+      return ApiResponse.fromJson(
+        json,
+        (raw) => (raw as List<dynamic>)
+            .map((e) => FridgeItemModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+    } on DioException catch (e) {
+      final serverMsg = (e.response?.data as Map<String, dynamic>?)?['message']
+          as String?;
+      throw Exception(serverMsg ?? '网络错误: ${e.message}');
+    }
   }
 }

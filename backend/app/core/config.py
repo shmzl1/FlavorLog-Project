@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     OCR_API_KEY: str = ""
     OCR_TIMEOUT_SECONDS: int = 30
 
-    LLM_TIMEOUT_SECONDS: int = 60
+    LLM_TIMEOUT_SECONDS: int = 120
 
     # Pydantic V2 配置：强制绑定刚才计算出的绝对路径
     model_config = SettingsConfigDict(

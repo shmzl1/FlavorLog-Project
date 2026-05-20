@@ -201,14 +201,34 @@ class FoodRecordService {
         contentType: DioMediaType('video', 'mp4'),
       ),
     });
-    final resp = await _client.dio.post<dynamic>(
-      ApiEndpoints.videoFastEntry,
-      data: formData,
-    );
-    final json = resp.data as Map<String, dynamic>;
-    return ApiResponse.fromJson(
-      json,
-      (raw) => (raw as List<dynamic>).cast<Map<String, dynamic>>(),
-    );
+    try {
+      final resp = await _client.dio.post<dynamic>(
+        ApiEndpoints.videoFastEntry,
+        data: formData,
+        options: Options(
+          // LLM 识别可能耗时较长，独立设置 120s
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      final json = resp.data as Map<String, dynamic>;
+      return ApiResponse.fromJson(
+        json,
+        (raw) => (raw as List<dynamic>).cast<Map<String, dynamic>>(),
+      );
+    } on DioException catch (e) {
+      // 提取后端返回的可读错误信息（如“AI 未能识别到食物”）
+      final body = e.response?.data;
+      String message = 'AI 识别失败，请重试';
+      if (body is Map<String, dynamic>) {
+        message = (body['message'] as String?) ??
+            (body['detail'] as String?) ??
+            message;
+      }
+      return ApiResponse(
+        code: e.response?.statusCode ?? -1,
+        message: message,
+        data: null,
+      );
+    }
   }
 }

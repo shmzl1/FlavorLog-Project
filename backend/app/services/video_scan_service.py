@@ -1,4 +1,5 @@
 # backend/app/services/video_scan_service.py
+import base64
 import cv2
 import numpy as np
 import os
@@ -113,3 +114,39 @@ class FoodDetector:
                 cap.release()
                 
         return cropped_images
+
+    @classmethod
+    def extract_frames_as_b64(cls, video_path: str, max_frames: int = 3) -> List[str]:
+        """
+        从视频中均匀抽取关键帧，返回 base64 编码的 JPEG 列表。
+        不依赖 YOLO，用于在 YOLO 无结果时将帧送给 LLM 识别。
+        """
+        cap = None
+        frames_b64: List[str] = []
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                raise ValueError(f"OpenCV 无法读取视频: {video_path}")
+
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+            step = max(1, total // max_frames)
+
+            for i in range(max_frames):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, i * step)
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                # 缩放到最大 480px，减少 token 消耗
+                h, w = frame.shape[:2]
+                scale = min(1.0, 480 / max(h, w))
+                if scale < 1.0:
+                    frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+                ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if ok:
+                    frames_b64.append(base64.b64encode(buf.tobytes()).decode())
+        except Exception:
+            print(f"⚠️ extract_frames_as_b64 异常:\n{traceback.format_exc()}")
+        finally:
+            if cap is not None:
+                cap.release()
+        return frames_b64
