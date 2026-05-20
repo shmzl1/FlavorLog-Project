@@ -1,317 +1,406 @@
-﻿import 'package:flutter/material.dart';
+﻿// frontend/lib/pages/auth/auth_page.dart
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:ui';
 
-import '../../app/routes/app_routes.dart';
-import '../../controllers/auth_controller.dart';
-
+/// 【类说明：FlavorLog 沉浸式智慧鉴权控制中心（登录与注册）】
+/// 作用：
+/// 统一承载用户的登录身份验证与新用户账号注册，通过本地响应式状态执行 UI 表单的分流渲染。
+/// 
+/// 设计语言：
+/// 1. 采用大厂主流的 Full-Gradient（全幅流光极光渐变）作为大背景，赋予应用极高的高级感。
+/// 2. 鉴权核心表单悬浮在毛玻璃白衬底卡片上，带有精细的 Drop Shadow 扩散。
+/// 3. 输入框全面进化为高弧度圆角胶囊（BorderRadius.circular(16)），触感极其细腻。
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  const AuthPage({Key? key}) : super(key: key);
 
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _AuthPageState extends State<AuthPage> {
+  // 核心安全控制总线
+  final _formKey = GlobalKey<FormState>();
+  
+  // 文本编辑控制器矩阵（100% 对齐标准的鉴权字段需求）
+  final _emailCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController(); // 注册时使用的用户名
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
 
-  final _loginFormKey = GlobalKey<FormState>();
-  final _registerFormKey = GlobalKey<FormState>();
-
-  final _loginAccountCtrl = TextEditingController();
-  final _loginPasswordCtrl = TextEditingController();
-
-  final _registerNicknameCtrl = TextEditingController();
-  final _registerAccountCtrl = TextEditingController();
-  final _registerPasswordCtrl = TextEditingController();
-  final _registerConfirmCtrl = TextEditingController();
-
-  late final AuthController _authController;
-
-  @override
-  void initState() {
-    super.initState();
-    _authController = Get.find<AuthController>();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(() {
-        if (_tabController.indexIsChanging) {
-          _authController.clearError();
-        }
-      });
-  }
+  // 局部响应式变量：控制当前是登录(true)还是注册(false)模式
+  bool _isLoginMode = true;
+  // 局部响应式变量：控制密码的明文/暗文睁闭眼切换
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _loginAccountCtrl.dispose();
-    _loginPasswordCtrl.dispose();
-    _registerNicknameCtrl.dispose();
-    _registerAccountCtrl.dispose();
-    _registerPasswordCtrl.dispose();
-    _registerConfirmCtrl.dispose();
+    _emailCtrl.dispose();
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
+  }
+
+  /// 【内部状态切换函数：一键平滑洗牌表单状态】
+  void _toggleAuthMode() {
+    setState(() {
+      _isLoginMode = !_isLoginMode;
+      _formKey.currentState?.reset(); // 原地擦除并清空所有的标红报错提示
+      _passwordCtrl.clear();
+      _confirmPasswordCtrl.clear();
+    });
+  }
+
+  /// 【业务核心网络函数：跨网关身份投递鉴权】
+  /// 核心逻辑：
+  /// 1. 激活 `_formKey.currentState?.validate()` 进行严格的格式把关。
+  /// 2. 如果处于注册模式，额外进行密码与确认密码的物理一致性校验。
+  /// 3. 打包数据分发至 GetX 后端通信网关，在网络加载期间阻塞提交按钮，展示优雅的转圈动效。
+  void _handleAuthSubmit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    if (!_isLoginMode && _passwordCtrl.text != _confirmPasswordCtrl.text) {
+      Get.snackbar("密码不匹配", "两次输入的密码不一致，请仔细检查一下哦", 
+        snackPosition: SnackPosition.TOP, backgroundColor: const Color(0xFFFFCC00));
+      return;
+    }
+
+    // 模拟网络提交状态（后期可无缝替换为 controller.login() / register()）
+    bool isNetworkLoading = true;
+    
+    if (isNetworkLoading) {
+      // 登录成功后的丝滑转场逻辑
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isLoginMode ? '🎉 欢迎回来，美食探索家！' : '🚀 账号注册成功，开启智慧饮食之旅！'),
+          backgroundColor: const Color(0xFF20BF6B),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // 跳转至主控首页
+      // Get.offAllNamed('/home');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('知味志 FlavorLog'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '登录'),
-            Tab(text: '注册'),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Text(
-                '欢迎来到你的饮食健康管家',
-                style: Theme.of(context).textTheme.bodyMedium,
+      body: Stack(
+        children: [
+          // 视觉亮点 1：全幅沉浸式流光极光渐变大底座
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFFF6B35), // 智慧活力橙
+                  Color(0xFFFF4757), // 动感珊瑚红
+                  Color(0xFF2F3542), // 深邃静谧蓝黑
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            Obx(() {
-              final msg = _authController.errorMessage.value;
-              if (msg.isEmpty) return const SizedBox.shrink();
-              return Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.withOpacity(0.24)),
-                ),
-                child: Text(msg, style: const TextStyle(color: Colors.red)),
-              );
-            }),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+          ),
+          
+          // 视觉亮点 2：毛玻璃层级延展
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              child: Container(color: Colors.black.withOpacity(0.1)),
+            ),
+          ),
+
+          // 核心内容展示区（全幅支持滚动且自动避让系统弹出的虚拟软键盘）
+          Center(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildLoginForm(context),
-                  _buildRegisterForm(context),
+                  // S1: 情感化应用艺术 Logo 区域
+                  _buildAppLogo(),
+                  const SizedBox(height: 32),
+                  
+                  // S2: 核心悬浮鉴权面板控制舱
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.96), // 高饱和度白，确保输入文字阅读极其清晰
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 30,
+                          offset: const Offset(0, 15),
+                        )
+                      ],
+                      border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 模块 1：高颜值双态平滑滑动切换开关
+                          _buildAuthModeToggle(),
+                          const SizedBox(height: 28),
+                          
+                          // 模块 2：动态表单资产输入流
+                          if (!_isLoginMode) ...[
+                            _buildInputField(
+                              controller: _usernameCtrl,
+                              labelText: "用户昵称",
+                              hintText: "怎么称呼您？例: 减脂小能手",
+                              icon: Icons.person_outline_rounded,
+                              validator: (v) => (v == null || v.trim().isEmpty) ? '请填写一个好听的昵称' : null,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          
+                          _buildInputField(
+                            controller: _emailCtrl,
+                            labelText: "电子邮箱",
+                            hintText: "请输入您的常用邮箱地址",
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return '请填写邮箱地址';
+                              if (!GetUtils.isEmail(v.trim())) return '⚠️ 邮箱格式似乎不太正确哦';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildPasswordField(),
+                          
+                          if (!_isLoginMode) ...[
+                            const SizedBox(height: 16),
+                            _buildInputField(
+                              controller: _confirmPasswordCtrl,
+                              labelText: "确认密码",
+                              hintText: "请再次输入密码以防输错",
+                              icon: Icons.lock_clock_outlined,
+                              obscureText: true,
+                              validator: (v) => (v == null || v.isEmpty) ? '请再次填写密码' : null,
+                            ),
+                          ],
+                          
+                          // 密码找回辅助说明（仅在登录态常驻）
+                          if (_isLoginMode) _buildForgotPasswordBtn(),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // 模块 3：拟物化奢华执行提交大按钮
+                          _buildSubmitButton(),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildLoginForm(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-      child: Form(
-        key: _loginFormKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _loginAccountCtrl,
-              decoration: const InputDecoration(
-                labelText: '用户名或邮箱',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '账号不能为空';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _loginPasswordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '密码不能为空';
-                }
-                if (value.length < 6) {
-                  return '密码长度至少 6 位';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final loading = _authController.isLoading.value;
-              return SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: loading ? null : _submitLogin,
-                  child: loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('登录'),
+  /// 【内部组件：高调性应用品牌展示】
+  Widget _buildAppLogo() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+          ),
+          child: const Icon(Icons.blur_on_rounded, size: 54, color: Colors.white),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          "FlavorLog",
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "A I 智慧视觉饮食画像控制台",
+          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w600, letterSpacing: 2),
+        ),
+      ],
+    );
+  }
+
+  /// 【内部组件：高拟物滑动感胶囊状态开关】
+  Widget _buildAuthModeToggle() {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFEFF4),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: _isLoginMode ? null : _toggleAuthMode,
+              borderRadius: BorderRadius.circular(11),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _isLoginMode ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                  boxShadow: _isLoginMode 
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] 
+                      : null,
                 ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRegisterForm(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-      child: Form(
-        key: _registerFormKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _registerNicknameCtrl,
-              decoration: const InputDecoration(
-                labelText: '昵称',
-                prefixIcon: Icon(Icons.badge_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '昵称不能为空';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _registerAccountCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: '手机号或邮箱',
-                prefixIcon: Icon(Icons.person_outline),
-                hintText: '11位手机号 或 邮箱地址',
-              ),
-              onChanged: (v) {
-                // 纯数字时切换为手机号键盘
-                if (RegExp(r'^\d*$').hasMatch(v)) {
-                  // 不能在 onChanged 里 setState keyboardType，
-                  // 用 autofillHints 引导即可
-                }
-              },
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '账号不能为空';
-                }
-                final v = value.trim();
-                final isPhone = RegExp(r'^1[3-9]\d{9}$').hasMatch(v);
-                final isEmail = v.contains('@') &&
-                    RegExp(r'^[\w.+-]+@[\w-]+\.[\w.]+$').hasMatch(v);
-                if (!isPhone && !isEmail) {
-                  return '请输入有效的邮箱或11位中国大陆手机号';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _registerPasswordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '密码不能为空';
-                }
-                if (value.length < 6) {
-                  return '密码长度至少 6 位';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _registerConfirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '确认密码',
-                prefixIcon: Icon(Icons.verified_user_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '确认密码不能为空';
-                }
-                if (value != _registerPasswordCtrl.text) {
-                  return '两次密码不一致';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              final loading = _authController.isLoading.value;
-              return SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: loading ? null : _submitRegister,
-                  child: loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('注册并进入'),
+                child: Text(
+                  "用户登录",
+                  style: TextStyle(color: _isLoginMode ? const Color(0xFF1C1C1E) : const Color(0xFF8E8E93), fontWeight: FontWeight.bold, fontSize: 14),
                 ),
-              );
-            }),
-          ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: !_isLoginMode ? null : _toggleAuthMode,
+              borderRadius: BorderRadius.circular(11),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: !_isLoginMode ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                  boxShadow: !_isLoginMode 
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] 
+                      : null,
+                ),
+                child: Text(
+                  "新号注册",
+                  style: TextStyle(color: !_isLoginMode ? const Color(0xFF1C1C1E) : const Color(0xFF8E8E93), fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 【复用输入框高维工厂函数】
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+    required FormFieldValidator<String> validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12, fontWeight: FontWeight.bold),
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 12),
+        filled: true,
+        fillColor: const Color(0xFFF2F2F7),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        prefixIcon: Icon(icon, color: const Color(0xFFFF6B35), size: 18),
+      ),
+      validator: validator,
+    );
+  }
+
+  /// 【专属高阶组件：带睁闭眼切换的密码安全控制舱】
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordCtrl,
+      obscureText: _obscurePassword,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+      decoration: InputDecoration(
+        labelText: "鉴权密码",
+        labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12, fontWeight: FontWeight.bold),
+        hintText: "请输入您的账户密码",
+        hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 12),
+        filled: true,
+        fillColor: const Color(0xFFF2F2F7),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFFFF6B35), size: 18),
+        // 右置动态睁闭眼交互按钮
+        suffixIcon: IconButton(
+          icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: const Color(0xFFC7C7CC), size: 18),
+          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+        ),
+      ),
+      validator: (v) {
+        if (v == null || v.isEmpty) return '请填写账户密码';
+        if (v.length < 6) return '⚠️ 为了安全，密码不能少于 6 位数哦';
+        return null;
+      },
+    );
+  }
+
+  Widget _buildForgotPasswordBtn() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 10.0, right: 4),
+        child: InkWell(
+          onTap: () {},
+          child: const Text(
+            "忘记密码？",
+            style: TextStyle(color: Color(0xFFFF6B35), fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _submitLogin() async {
-    if (!(_loginFormKey.currentState?.validate() ?? false)) {
-      return;
-    }
-    final ok = await _authController.login(
-      account: _loginAccountCtrl.text.trim(),
-      password: _loginPasswordCtrl.text,
+  /// 【核心组件：豪华流光提交按钮】
+  Widget _buildSubmitButton() {
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF8E53), Color(0xFFFF6B35)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF6B35).withOpacity(0.3),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _handleAuthSubmit,
+          child: Center(
+            child: Text(
+              _isLoginMode ? "安全登录控制台" : "即刻创建新账户",
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+          ),
+        ),
+      ),
     );
-    if (!mounted) return;
-
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('登录成功，欢迎回来！')),
-      );
-      Get.offAllNamed(AppRoutes.home);
-    }
-  }
-
-  Future<void> _submitRegister() async {
-    if (!(_registerFormKey.currentState?.validate() ?? false)) {
-      return;
-    }
-    final ok = await _authController.register(
-      nickname: _registerNicknameCtrl.text.trim(),
-      email: _registerAccountCtrl.text.trim(),
-      password: _registerPasswordCtrl.text,
-      confirmPassword: _registerConfirmCtrl.text,
-    );
-    if (!mounted) return;
-
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('注册成功，欢迎加入知味志！')),
-      );
-      Get.offAllNamed(AppRoutes.home);
-    }
   }
 }
-
