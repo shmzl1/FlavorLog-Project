@@ -10,19 +10,28 @@ from app.db.base import Base
 
 class User(Base):
     """
-    用户深度画像模型。
-    
+    【类说明：User 用户深度画像模型】
     作用：
-    映射 `users` 表[cite: 2]。除了基础的鉴权信息，它还承载了用户的生物学特征（身高、体重）
-    以及饮食偏好[cite: 2]。这些数据在后续调用 LLM 生成个性化菜谱推荐时，
-    将作为关键的上下文（Context）输入给大模型。
+    映射数据库中的 `users` 表。不仅包含基础的鉴权信息（账号、密码），还承载了用户的生物学特征（身高、体重）
+    以及饮食偏好。
+    
+    业务逻辑：
+    这些数据在后续调用 LLM 生成个性化菜谱推荐时，将作为关键的上下文（Context）输入给大模型。
+    
+    本次修改：
+    为了支持手机号注册/登录，新增了 phone 字段，并将 email 改为非必填（nullable=True）。
     """
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+    
+    # 【修改】将 email 的 nullable 改为 True，并使用 Optional[str]
+    email: Mapped[Optional[str]] = mapped_column(String(120), unique=True, index=True, nullable=True)
+    
+    # 【新增】phone 字段，长度 20 足以容纳国际手机号，允许为空
     phone: Mapped[Optional[str]] = mapped_column(String(20), unique=True, index=True, nullable=True)
+    
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     
     # 扩展资料
@@ -38,7 +47,7 @@ class User(Base):
     # 个性化 AI 推荐的核心权重字段
     health_goal: Mapped[Optional[str]] = mapped_column(String(50)) # 例如: 减脂、增肌
     diet_preference: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]', nullable=False) # 饮食偏好
-    allergens: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]', nullable=False) # 过敏原[cite: 2]
+    allergens: Mapped[list] = mapped_column(JSONB, default=list, server_default='[]', nullable=False) # 过敏原
     profile_json: Mapped[dict] = mapped_column(JSONB, default=dict, server_default='{}', nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

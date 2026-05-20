@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(120) UNIQUE NOT NULL,
+    email VARCHAR(120) UNIQUE,
+    phone VARCHAR(20) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     nickname VARCHAR(50),
     avatar_url TEXT,
@@ -16,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 
 CREATE TABLE IF NOT EXISTS upload_files (
     id BIGSERIAL PRIMARY KEY,
