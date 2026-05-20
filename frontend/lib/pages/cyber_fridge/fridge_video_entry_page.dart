@@ -4,8 +4,8 @@ import 'dart:math' show sin;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/fridge_item_model.dart';
 import '../../services/api/fridge_service.dart';
-import 'fridge_video_result_page.dart';
 
 /// 冰箱 - 视频扫描录入页
 /// 用户录制一段视频展示食材，AI 自动检测并录入冰箱
@@ -123,43 +123,110 @@ class _FridgeVideoEntryPageState extends State<FridgeVideoEntryPage>
     });
     try {
       setState(() {
-        _uploadStatus = 'YOLO 识别食材中...';
-        _uploadProgress = 0.35;
+        _uploadStatus = 'AI 识别食材中...';
+        _uploadProgress = 0.4;
       });
-      final resp = await FridgeService.instance.scanFromVideo(path);
+
+      // ① 先用 preview=true：只识别，不写库
+      final resp = await FridgeService.instance.recognizeFromVideo(path);
+
       setState(() {
-        _uploadProgress = 0.9;
-        _uploadStatus = '录入冰箱中...';
+        _uploadProgress = 0.85;
+        _uploadStatus = '识别完成，等待确认...';
+        _isUploading = false;
       });
 
-      if (!resp.isSuccess || resp.data == null) {
-        _showError(resp.message.isNotEmpty ? resp.message : '识别失败，请重试');
-        setState(() => _isUploading = false);
-        return;
-      }
-      final items = resp.data!;
-      if (items.isEmpty) {
-        _showError('未能检测到食材，请重新录制并对准食材');
-        setState(() => _isUploading = false);
+      if (!resp.isSuccess || resp.data == null || resp.data!.isEmpty) {
+        final msg = (resp.message.isNotEmpty)
+            ? resp.message
+            : 'AI 无法识别食材，请对准食物重新录制';
+        _showRecognitionFailed(msg);
         return;
       }
 
       if (!mounted) return;
+
+      // ② 弹出可编辑确认弹窗
+      final confirmed = await _showConfirmDialog(resp.data!);
+      if (confirmed == null || confirmed.isEmpty) return; // 用户取消
+
+      // ③ 批量入库
+      setState(() {
+        _isUploading = true;
+        _uploadStatus = '录入冰箱中...';
+        _uploadProgress = 0.95;
+      });
+
+      for (final item in confirmed) {
+        await FridgeService.instance.createItem(
+          name: item.nameCtrl.text,
+          category: item.category,
+          quantity: double.tryParse(item.quantityCtrl.text) ?? 1.0,
+          unit: item.unitCtrl.text,
+        );
+      }
+
       setState(() => _isUploading = false);
-
-      final done = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => FridgeVideoResultPage(scannedItems: items),
-        ),
-      );
-
       if (!mounted) return;
-      if (done == true) Navigator.pop(context, true);
+      Navigator.pop(context, true); // 回到冰箱页并刷新
     } catch (e) {
       _showError('网络错误：$e');
       setState(() => _isUploading = false);
     }
+  }
+
+  // ── 识别失败提示（带「重新录制」和「手动添加」两个选项）────────
+  void _showRecognitionFailed(String msg) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 22),
+            SizedBox(width: 8),
+            Text('识别失败', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Text(msg,
+            style: const TextStyle(color: Colors.white70, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('重新录制', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context); // 返回冰箱页手动添加
+            },
+            child: const Text('手动添加'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 识别结果确认弹窗（可编辑名称/数量/单位）────────────────────
+  Future<List<_ConfirmItem>?> _showConfirmDialog(
+      List<FridgeItemModel> recognized) async {
+    // 把识别结果转成可编辑状态
+    final editables =
+        recognized.map((e) => _ConfirmItem.fromModel(e)).toList();
+
+    return showModalBottomSheet<List<_ConfirmItem>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ConfirmBottomSheet(items: editables),
+    );
   }
 
   void _showError(String msg) {
@@ -462,6 +529,286 @@ class _FridgeVideoEntryPageState extends State<FridgeVideoEntryPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  确认弹窗用的可编辑食材数据类
+// ══════════════════════════════════════════════════════════════════
+class _ConfirmItem {
+  final TextEditingController nameCtrl;
+  final TextEditingController quantityCtrl;
+  final TextEditingController unitCtrl;
+  String category;
+
+  _ConfirmItem({
+    required String name,
+    required double quantity,
+    required String unit,
+    required this.category,
+  })  : nameCtrl = TextEditingController(text: name),
+        quantityCtrl = TextEditingController(
+            text: quantity == quantity.toInt()
+                ? quantity.toInt().toString()
+                : quantity.toStringAsFixed(1)),
+        unitCtrl = TextEditingController(text: unit);
+
+  factory _ConfirmItem.fromModel(FridgeItemModel m) => _ConfirmItem(
+        name: m.name,
+        quantity: m.quantity,
+        unit: m.unit ?? '个',
+        category: m.category ?? '其他',
+      );
+
+  void dispose() {
+    nameCtrl.dispose();
+    quantityCtrl.dispose();
+    unitCtrl.dispose();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  识别结果确认底部弹窗
+// ══════════════════════════════════════════════════════════════════
+class _ConfirmBottomSheet extends StatefulWidget {
+  final List<_ConfirmItem> items;
+  const _ConfirmBottomSheet({required this.items});
+
+  @override
+  State<_ConfirmBottomSheet> createState() => _ConfirmBottomSheetState();
+}
+
+class _ConfirmBottomSheetState extends State<_ConfirmBottomSheet> {
+  late final List<_ConfirmItem> _items;
+
+  static const _categories = [
+    '蔬菜', '水果', '肉类', '海鲜', '蛋类', '乳制品',
+    '谷物', '调味品', '饮品', '其他',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List.of(widget.items);
+  }
+
+  @override
+  void dispose() {
+    for (final i in _items) {
+      i.dispose();
+    }
+    super.dispose();
+  }
+
+  void _removeItem(int index) => setState(() => _items.removeAt(index));
+
+  void _confirm() {
+    Navigator.pop<List<_ConfirmItem>>(context, List.of(_items));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (_, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // 拖动条
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 标题
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      color: Color(0xFF6C63FF), size: 20),
+                  const SizedBox(width: 8),
+                  const Text('识别结果确认',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Text('共 ${_items.length} 种食材',
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 13)),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 20),
+
+            // 食材列表
+            Expanded(
+              child: _items.isEmpty
+                  ? const Center(
+                      child: Text('已全部移除，请重新录制',
+                          style: TextStyle(color: Colors.white38)))
+                  : ListView.separated(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _items.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(color: Colors.white12, height: 1),
+                      itemBuilder: (_, i) => _buildItemRow(_items[i], i),
+                    ),
+            ),
+
+            // 底部按钮
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        side: const BorderSide(color: Colors.white24),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6C63FF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        disabledBackgroundColor: Colors.white12,
+                      ),
+                      onPressed: _items.isEmpty ? null : _confirm,
+                      child: const Text('确认入库',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemRow(_ConfirmItem item, int index) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 名称
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: item.nameCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                filled: true,
+                fillColor: Colors.white10,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                hintText: '食材名',
+                hintStyle: const TextStyle(color: Colors.white38),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 数量
+          SizedBox(
+            width: 54,
+            child: TextField(
+              controller: item.quantityCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                filled: true,
+                fillColor: Colors.white10,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // 单位
+          SizedBox(
+            width: 46,
+            child: TextField(
+              controller: item.unitCtrl,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                filled: true,
+                fillColor: Colors.white10,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 分类下拉
+          DropdownButton<String>(
+            value: _categories.contains(item.category) ? item.category : '其他',
+            dropdownColor: const Color(0xFF2A2A3E),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            underline: const SizedBox(),
+            icon: const Icon(Icons.expand_more, color: Colors.white38, size: 16),
+            items: _categories
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (v) => setState(() => item.category = v ?? '其他'),
+          ),
+          // 删除
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _removeItem(index),
+          ),
+        ],
       ),
     );
   }

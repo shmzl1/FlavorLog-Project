@@ -4,31 +4,76 @@ import cv2
 import uuid
 import shutil
 import tempfile
+import traceback
 import numpy as np
-from typing import List, Dict, Any
+from datetime import datetime, timezone
+from typing import List
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from celery.result import AsyncResult
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
-from app.schemas.food_record import FoodRecordCreate
+from app.schemas.food_record import FoodRecordCreate, FoodRecordItemCreate
 from app.schemas.response import StandardResponse, success_response
 
-from app.services.video_entry_service import VideoEntryService
 from app.services.food_record_service import FoodRecordService
+from app.services.video_scan_service import FoodDetector
 from app.algorithms.vision.yolo_detector import YoloFoodDetector
 from app.algorithms.llm.standardizer import RecordStandardizer
+from app.algorithms.llm.llm_client import LLMClient
+from app.core.config import settings
 
-# 引入刚刚写好的 Celery 异步任务
+# 引入 Celery 异步任务
 from app.tasks.video_tasks import process_video_async_task
 
 router = APIRouter()
 
-# 实例化核心服务
-video_entry_service = VideoEntryService()
+# 实例化核心服务（供图片识别接口使用）
 yolo_detector = YoloFoodDetector(model_path="models/yolov8n.pt")
 standardizer = RecordStandardizer()
 food_record_service = FoodRecordService()
+
+
+def _guess_meal_type() -> str:
+    """根据当前时段推断餐次"""
+    hour = datetime.now().hour
+    if 6 <= hour < 10:
+        return "breakfast"
+    if 10 <= hour < 14:
+        return "lunch"
+    if 17 <= hour < 21:
+        return "dinner"
+    return "snack"
+
+
+def _llm_foods_to_drafts(foods: List[dict]) -> List[FoodRecordCreate]:
+    """将 LLM recognize_food_from_frames 返回的 foods 列表转换为 FoodRecordCreate 草稿。"""
+    if not foods:
+        return []
+    meal_type = _guess_meal_type()
+    items = [
+        FoodRecordItemCreate(
+            food_name=f.get("name", "未知食物") or "未知食物",
+            weight_g=float(f.get("weight_g", 0) or 0) or None,
+            calories=float(f.get("calories", 0) or 0) or None,
+            protein_g=float(f.get("protein_g", 0) or 0) or None,
+            fat_g=float(f.get("fat_g", 0) or 0) or None,
+            carbohydrate_g=float(f.get("carbohydrate_g", 0) or 0) or None,
+            confidence=float(f.get("confidence", 0.8) or 0.8),
+        )
+        for f in foods
+    ]
+    total_cal = sum(i.calories or 0 for i in items)
+    return [
+        FoodRecordCreate(
+            meal_type=meal_type,
+            record_time=datetime.now(timezone.utc),
+            source_type="video_ai",
+            items=items,
+            total_calories=total_cal or None,
+        )
+    ]
 
 
 @router.post("/photo", response_model=StandardResponse[FoodRecordCreate])
@@ -56,34 +101,43 @@ async def recognize_photo_to_draft(
 @router.post("/video-fast-entry", response_model=StandardResponse[List[FoodRecordCreate]])
 async def recognize_video_fast_entry(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    【视频极速录入 API (同步阻塞版)】
-    保留的同步接口。如果前端想直接一直转圈等结果，可以调用这个接口。
-    """
+    """【视频极速录入 API】抽帧 → LLM 多模态识别食物。"""
     if file.content_type is None or not file.content_type.startswith("video/"):
         raise HTTPException(status_code=400, detail="必须上传合法的视频文件 (如 MP4, MOV 等)")
 
     temp_video_path = ""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-            # 【内存优化】使用 shutil 流式落盘，替代 await file.read()，防止大视频撑爆内存
             shutil.copyfileobj(file.file, tmp)
             temp_video_path = tmp.name
 
-        draft_records = video_entry_service.process_fast_video_entry(temp_video_path)
+        frames_b64: List[str] = await run_in_threadpool(
+            FoodDetector.extract_frames_as_b64, temp_video_path
+        )
+        if not frames_b64:
+            raise HTTPException(status_code=400, detail="无法从视频中提取画面，请检查视频格式")
 
-        if not draft_records:
-            return success_response(data=[], msg="视频中未识别到明确的饮食记录")
+        llm = LLMClient.from_settings(settings)
+        llm_result = await run_in_threadpool(
+            llm.recognize_food_from_frames, frames_b64, ""
+        )
+        foods = llm_result.output_json.get("foods", [])
+        if not foods:
+            raise HTTPException(status_code=400, detail="AI 未能识别到食物，请对准食物后重新录制")
 
-        return success_response(data=draft_records, msg=f"成功从视频中提取 {len(draft_records)} 条记录")
+        draft_records = _llm_foods_to_drafts(foods)
+        print(f"[LLM] 识别到 {len(foods)} 种食物")
+        return success_response(data=draft_records, msg=f"LLM 识别到 {len(foods)} 种食物")
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"视频极速录入处理失败: {str(e)}")
-        
+        print(f"❌ 视频录入崩溃:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"视频处理失败: {str(e)}")
+
     finally:
-        video_entry_service.release_resources()
         if temp_video_path and os.path.exists(temp_video_path):
             try:
                 os.remove(temp_video_path)

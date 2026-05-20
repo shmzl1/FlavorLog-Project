@@ -158,33 +158,93 @@ class FoodRecordPage extends StatelessWidget {
 
 // ── 日期标题栏 ────────────────────────────────────────────────────────────────
 
+/// [_DateBar] 展示当前日期，并提供「前一天 / 后一天」快捷导航。
 class _DateBar extends StatelessWidget {
   const _DateBar({required this.controller});
   final FoodRecordController controller;
+
+  String _label(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final t = DateTime(d.year, d.month, d.day);
+    if (t == today) return '今天';
+    if (t == today.subtract(const Duration(days: 1))) return '昨天';
+    return '${d.year}年${d.month.toString().padLeft(2, '0')}月${d.day.toString().padLeft(2, '0')}日';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final d = controller.selectedDate.value;
-      final label = '${d.year}年 ${d.month.toString().padLeft(2, '0')}月 ${d.day.toString().padLeft(2, '0')}日';
-      
+      final now = DateTime.now();
+      final isToday =
+          d.year == now.year && d.month == now.month && d.day == now.day;
       return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
-          ]
-        ),
+        color: Theme.of(context).colorScheme.primaryContainer,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: const Color(0xFFFF6B35).withOpacity(0.12), shape: BoxShape.circle),
-              child: const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFFFF6B35)),
+            // 前一天
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () =>
+                  controller.changeDate(d.subtract(const Duration(days: 1))),
+            ),
+            // 日期标题（可点击唤起日历）
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: d,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) controller.changeDate(picked);
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.event_note, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _label(d),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (!isToday) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => controller.changeDate(DateTime.now()),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text('回今天',
+                              style: TextStyle(
+                                  color: Colors.white, fontSize: 11)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            // 后一天（今天不可前进）
+            IconButton(
+              icon: Icon(
+                Icons.chevron_right,
+                color: isToday ? Colors.grey.shade400 : null,
+              ),
+              onPressed: isToday
+                  ? null
+                  : () => controller
+                      .changeDate(d.add(const Duration(days: 1))),
             ),
             const SizedBox(width: 10),
             Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E))),
@@ -331,6 +391,28 @@ class _SummaryBar extends StatelessWidget {
 
 // ── 记录列表 ────────────────────────────────────────────────────────────────
 
+// 餐次顺序、标签、图标、背景色
+const _kMealOrder = ['breakfast', 'lunch', 'dinner', 'snack'];
+const _kMealLabels = {
+  'breakfast': '早餐',
+  'lunch': '午餐',
+  'dinner': '晚餐',
+  'snack': '加餐',
+};
+const _kMealIcons = {
+  'breakfast': Icons.wb_sunny_outlined,
+  'lunch': Icons.lunch_dining,
+  'dinner': Icons.dinner_dining,
+  'snack': Icons.cookie_outlined,
+};
+const _kMealColors = {
+  'breakfast': Color(0xFFFFF3CD),
+  'lunch': Color(0xFFD4EDDA),
+  'dinner': Color(0xFFCCE5FF),
+  'snack': Color(0xFFF8D7DA),
+};
+
+/// [_RecordList] 按餐次（早/午/晚/加餐）分组展示当天饮食记录。
 class _RecordList extends StatelessWidget {
   const _RecordList({required this.controller});
   final FoodRecordController controller;
@@ -359,81 +441,117 @@ class _RecordList extends StatelessWidget {
       }
       
       if (controller.records.isEmpty) {
-        return const Padding(
-          padding: EdgeInsets.only(top: 80, left: 20, right: 20),
-          child: EmptyState(
-            icon: Icons.restaurant_menu_outlined,
-            title: '今天还没有饮食打卡',
-            message: '健康的体魄源于自律。点击右下角按钮，让 AI 帮你评估今天的第一餐吧！',
-          ),
+        return const EmptyState(
+          icon: Icons.restaurant_menu_outlined,
+          title: '还没有饮食记录',
+          message: '点击右下角"新增记录"，开始记录今天的饮食吧。',
         );
       }
-      
-      return ListView.builder(
-        shrinkWrap: true, 
-        physics: const NeverScrollableScrollPhysics(), 
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 100), 
-        itemCount: controller.records.length,
-        itemBuilder: (context, index) {
-          return _RecordCard(
-            record: controller.records[index],
+
+      // 按餐次分组
+      final grouped = <String, List<FoodRecordModel>>{};
+      for (final r in controller.records) {
+        grouped.putIfAbsent(r.mealType, () => []).add(r);
+      }
+      // 按固定顺序排列，未知餐次附加到末尾
+      final keys = [
+        ..._kMealOrder.where(grouped.containsKey),
+        ...grouped.keys.where((k) => !_kMealOrder.contains(k)),
+      ];
+
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+        children: keys.map((meal) {
+          final recs = grouped[meal]!;
+          final totalCal = recs.fold(0.0, (s, r) => s + r.totalCalories);
+          return _MealGroup(
+            mealType: meal,
+            records: recs,
+            totalCalories: totalCal,
             controller: controller,
           );
-        },
+        }).toList(),
       );
     });
   }
 }
 
-// ── 单条记录卡片 (全面拥抱果味极简风格) ───────────────────────────────────────────────────────────
+/// 单个餐次分组：顶部色块标题 + 该餐次所有 [_RecordCard]
+class _MealGroup extends StatelessWidget {
+  const _MealGroup({
+    required this.mealType,
+    required this.records,
+    required this.totalCalories,
+    required this.controller,
+  });
+  final String mealType;
+  final List<FoodRecordModel> records;
+  final double totalCalories;
+  final FoodRecordController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _kMealLabels[mealType] ?? mealType;
+    final icon = _kMealIcons[mealType] ?? Icons.restaurant;
+    final bg = _kMealColors[mealType] ?? const Color(0xFFEEEEEE);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 12, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.black54),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14)),
+              const Spacer(),
+              Text('${totalCalories.toStringAsFixed(0)} kcal',
+                  style:
+                      const TextStyle(color: Colors.black54, fontSize: 12)),
+            ],
+          ),
+        ),
+        ...records.map((r) =>
+            _RecordCard(record: r, controller: controller)),
+      ],
+    );
+  }
+}
+
+// ── 单条记录卡片 ───────────────────────────────────────────────────────────
 
 class _RecordCard extends StatelessWidget {
   const _RecordCard({required this.record, required this.controller});
   final FoodRecordModel record;
   final FoodRecordController controller;
 
-  static const Map<String, String> _mealLabels = {
-    'breakfast': '活力早餐',
-    'lunch': '能量午餐',
-    'dinner': '饱腹晚餐',
-    'snack': '营养加餐',
-  };
-
-  static const Map<String, IconData> _mealIcons = {
-    'breakfast': Icons.wb_sunny_rounded,
-    'lunch': Icons.lunch_dining_rounded,
-    'dinner': Icons.dinner_dining_rounded,
-    'snack': Icons.cookie_rounded,
-  };
-
   @override
   Widget build(BuildContext context) {
-    final mealLabel = _mealLabels[record.mealType] ?? record.mealType;
-    final mealIcon = _mealIcons[record.mealType] ?? Icons.restaurant_rounded;
+    final mealLabel = _kMealLabels[record.mealType] ?? record.mealType;
+    final mealIcon = _kMealIcons[record.mealType] ?? Icons.restaurant;
 
-    // 单餐级别动态聚合计算
-    final double computedMealKcal = record.items.fold(0.0, (sum, item) => sum + item.calories);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        // 赋予类似赛博冰箱的柔和级微距阴影，替代生硬的灰色边框
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 6)),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent), 
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFFF6B35).withOpacity(0.12), shape: BoxShape.circle),
-              child: Icon(mealIcon, color: const Color(0xFFFF6B35), size: 22),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ExpansionTile(
+        leading: Icon(mealIcon, color: Theme.of(context).colorScheme.primary),
+        title: Text(mealLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          '${record.totalCalories.toStringAsFixed(0)} kcal'
+          '${record.description != null ? '  ·  ${record.description}' : ''}',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: '删除',
+              onPressed: () => _confirmDelete(context),
             ),
             title: Text(mealLabel, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1C1C1E))),
             subtitle: Padding(

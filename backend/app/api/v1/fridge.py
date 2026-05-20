@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import traceback
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,9 @@ from app.models.user import User
 from app.schemas.response import StandardResponse, success_response
 from app.schemas.fridge import FridgeItem, FridgeItemCreate
 from app.services.fridge_service import FridgeService, fridge_service
-from app.services.video_scan_service import FoodDetector 
+from app.services.video_scan_service import FoodDetector
+from app.algorithms.llm.llm_client import LLMClient
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -31,16 +33,18 @@ def get_fridge_items(
     return success_response(data=items, msg="获取冰箱食材成功")
 
 # [scan_food_from_video] 是一个复杂的 AI 识别接口。
-# 流程：接收视频 -> 流式写入临时文件 -> 调用 YOLO 识别 -> 自动入库存入冰箱。
-@router.post("/scan", response_model=StandardResponse[List[FridgeItem]])
+# 流程：接收视频 -> 流式写入临时文件 -> YOLO/LLM 识别 -> 入库（preview=False）或仅返回（preview=True）。
+@router.post("/scan")
 async def scan_food_from_video(
     video: UploadFile = File(...),
+    preview: bool = Query(False, description="仅识别不入库，返回预览数据"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     【食材视频扫描识别接口】
-    自动从视频关键帧中提取食材并将其保存到用户的赛博冰箱中。
+    preview=false（默认）：识别后直接入库并返回已保存的食材列表。
+    preview=true：只识别，不写数据库，返回识别到的食材草稿供前端确认。
     """
     content_type = video.content_type
     if content_type is None or not content_type.startswith("video/"):
@@ -51,41 +55,70 @@ async def scan_food_from_video(
 
     temp_video_path = ""
     try:
-        # 使用 NamedTemporaryFile 处理大文件上传，避免直接占用过多内存导致服务器 OOM
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
             shutil.copyfileobj(video.file, tmp)
             temp_video_path = tmp.name
-            
-        print(f"[1/3] 视频已暂存至: {temp_video_path}")
-        
-        # 调用 AI 算法模块（FoodDetector）进行视频处理和食材裁剪
-        # 使用 run_in_threadpool 保证耗时计算不会卡死 FastAPI 的主事件循环
-        food_images = await run_in_threadpool(FoodDetector.process_video_and_crop, temp_video_path)
-        
-        if not food_images:
-            raise HTTPException(status_code=400, detail="AI 未能识别到食材，请尝试对准食物再次录制")
 
-        # 将识别到的每一项食材草稿入库
+        print(f"[1/2] 视频已暂存至: {temp_video_path}")
+
+        # ► 抽帧（不依赖 YOLO）
+        frames_b64: List[str] = await run_in_threadpool(
+            FoodDetector.extract_frames_as_b64, temp_video_path
+        )
+        if not frames_b64:
+            raise HTTPException(status_code=400, detail="无法从视频中提取画面，请检查视频格式")
+
+        # ► LLM 多模态识别
+        llm = LLMClient.from_settings(settings)
+        llm_result = await run_in_threadpool(
+            llm.recognize_fridge_from_frames, frames_b64, ""
+        )
+        candidate_dicts: List[dict] = llm_result.output_json.get("items", [])
+        if not candidate_dicts:
+            raise HTTPException(
+                status_code=400,
+                detail="AI 未能识别到食材，请对准食材后重新录制视频",
+            )
+        print(f"[2/2] LLM 识别到 {len(candidate_dicts)} 种食材")
+
+        # ── preview 模式：只返回识别结果，不写库 ─────────────────────
+        if preview:
+            preview_list = [
+                {
+                    "id": 0,
+                    "user_id": 0,
+                    "name": d.get("name", "未知食材") or "未知食材",
+                    "category": d.get("category", "其他") or "其他",
+                    "quantity": float(d.get("quantity", 1) or 1),
+                    "unit": d.get("unit", "个") or "个",
+                    "created_at": "",
+                }
+                for d in candidate_dicts
+            ]
+            return success_response(data=preview_list, msg="识别完成，待确认")
+
+        # ── 正式入库 ──────────────────────────────────────────────────
         new_items = []
-        for idx, _ in enumerate(food_images):
+        for d in candidate_dicts:
             item_in = FridgeItemCreate(
-                name=f"自动扫描食材_{idx+1}", 
-                category="其他",
-                quantity=1.0,
-                unit="个",
-                expiration_date=None  
+                name=d.get("name", "未知食材") or "未知食材",
+                category=d.get("category", "其他") or "其他",
+                quantity=float(d.get("quantity", 1) or 1),
+                unit=d.get("unit", "个") or "个",
+                expiration_date=None,
             )
             item = FridgeService.create_item(db, obj_in=item_in, user_id=current_user.id)
             new_items.append(item)
-            
+
         print(f"========== ✅ 处理完成: 已录入 {len(new_items)} 种食材 ==========")
         return success_response(data=new_items, msg="视频扫描入库成功")
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ 视频处理链路崩溃:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"后端 AI 处理失败: {str(e)}")
     finally:
-        # 释放磁盘资源，删除临时视频文件
         if temp_video_path and os.path.exists(temp_video_path):
             try:
                 os.remove(temp_video_path)
