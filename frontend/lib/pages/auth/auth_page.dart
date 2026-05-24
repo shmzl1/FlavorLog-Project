@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:ui';
 
+import '../../controllers/auth_controller.dart';
+import '../../app/routes/app_routes.dart';
+
 /// 【类说明：FlavorLog 沉浸式智慧鉴权控制中心（登录与注册）】
 /// 作用：
 /// 统一承载用户的登录身份验证与新用户账号注册，通过本地响应式状态执行 UI 表单的分流渲染。
@@ -53,34 +56,38 @@ class _AuthPageState extends State<AuthPage> {
     });
   }
 
-  /// 【业务核心网络函数：跨网关身份投递鉴权】
-  /// 核心逻辑：
-  /// 1. 激活 `_formKey.currentState?.validate()` 进行严格的格式把关。
-  /// 2. 如果处于注册模式，额外进行密码与确认密码的物理一致性校验。
-  /// 3. 打包数据分发至 GetX 后端通信网关，在网络加载期间阻塞提交按钮，展示优雅的转圈动效。
   void _handleAuthSubmit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!_isLoginMode && _passwordCtrl.text != _confirmPasswordCtrl.text) {
-      Get.snackbar("密码不匹配", "两次输入的密码不一致，请仔细检查一下哦", 
-        snackPosition: SnackPosition.TOP, backgroundColor: const Color(0xFFFFCC00));
-      return;
+    final controller = Get.find<AuthController>();
+
+    bool ok;
+    if (_isLoginMode) {
+      ok = await controller.login(
+        account: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      );
+    } else {
+      ok = await controller.register(
+        nickname: _usernameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+        confirmPassword: _confirmPasswordCtrl.text,
+      );
     }
 
-    // 模拟网络提交状态（后期可无缝替换为 controller.login() / register()）
-    bool isNetworkLoading = true;
-    
-    if (isNetworkLoading) {
-      // 登录成功后的丝滑转场逻辑
+    if (!mounted) return;
+    if (ok) {
+      Get.offAllNamed(AppRoutes.home);
+    } else {
+      final msg = controller.errorMessage.value;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isLoginMode ? '🎉 欢迎回来，美食探索家！' : '🚀 账号注册成功，开启智慧饮食之旅！'),
-          backgroundColor: const Color(0xFF20BF6B),
+          content: Text(msg.isNotEmpty ? msg : (_isLoginMode ? '登录失败，请重试' : '注册失败，请重试')),
+          backgroundColor: const Color(0xFFFF4757),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      // 跳转至主控首页
-      // Get.offAllNamed('/home');
     }
   }
 
