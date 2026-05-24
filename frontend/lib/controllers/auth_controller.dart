@@ -21,15 +21,31 @@ class AuthController extends GetxController {
     restoreSession();
   }
 
-  /// App 启动时恢复登录态
+  /// App 启动时恢复登录态（向后端验证 token 是否仍有效）
   Future<void> restoreSession() async {
     final saved = await TokenStorage.getToken();
-    if (saved != null && saved.isNotEmpty) {
-      token.value = saved;
-      isLoggedIn.value = true;
+    if (saved == null || saved.isEmpty) {
+      isLoggedIn.value = false;
       return;
     }
-    isLoggedIn.value = false;
+    // 向后端验证 token 是否仍有效
+    try {
+      final resp = await _client.get(ApiEndpoints.me);
+      final body = resp.data as Map<String, dynamic>?;
+      if (body != null && body['code'] == 0) {
+        token.value = saved;
+        final user = body['data'] as Map<String, dynamic>? ?? {};
+        nickname.value = (user['nickname'] as String?) ?? '用户';
+        isLoggedIn.value = true;
+      } else {
+        await TokenStorage.clearToken();
+        isLoggedIn.value = false;
+      }
+    } catch (_) {
+      // 网络不通时保守地沿用本地 token，避免离线时反复跳到登录页
+      token.value = saved;
+      isLoggedIn.value = true;
+    }
   }
 
   /// 登录（调用真实后端）

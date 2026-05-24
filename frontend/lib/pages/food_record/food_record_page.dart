@@ -44,16 +44,9 @@ class FoodRecordPage extends StatelessWidget {
       body: Column(
         children: [
           _DateBar(controller: controller),
+          _SummaryBar(controller: controller),
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                children: [
-                  _SummaryBar(controller: controller),
-                  _RecordList(controller: controller),
-                ],
-              ),
-            ),
+            child: _RecordList(controller: controller),
           ),
         ],
       ),
@@ -246,14 +239,6 @@ class _DateBar extends StatelessWidget {
                   : () => controller
                       .changeDate(d.add(const Duration(days: 1))),
             ),
-            const SizedBox(width: 10),
-            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E))),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFF2F2F7), borderRadius: BorderRadius.circular(8)),
-              child: const Text("历史追溯", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93))),
-            )
           ],
         ),
       );
@@ -461,6 +446,7 @@ class _RecordList extends StatelessWidget {
 
       return ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+        physics: const BouncingScrollPhysics(),
         children: keys.map((meal) {
           final recs = grouped[meal]!;
           final totalCal = recs.fold(0.0, (s, r) => s + r.totalCalories);
@@ -549,46 +535,27 @@ class _RecordCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF4757), size: 20),
               tooltip: '删除',
               onPressed: () => _confirmDelete(context),
             ),
-            title: Text(mealLabel, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1C1C1E))),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Text(
-                '${computedMealKcal.toStringAsFixed(0)} kcal'
-                '${record.description != null ? '  ·  ${record.description}' : ''}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93), fontWeight: FontWeight.bold),
+            const Icon(Icons.expand_more_rounded, color: Color(0xFFC7C7CC), size: 22),
+          ],
+        ),
+        children: [
+          if (record.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1, thickness: 0.5, color: Color(0xFFF2F2F7)),
+                  const SizedBox(height: 10),
+                  ...record.items.map(_buildItemRow),
+                ],
               ),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF4757), size: 20),
-                  tooltip: '删除',
-                  onPressed: () => _confirmDelete(context), 
-                ),
-                const Icon(Icons.expand_more_rounded, color: Color(0xFFC7C7CC), size: 22),
-              ],
-            ),
-            children: [
-              if (record.items.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Divider(height: 1, thickness: 0.5, color: Color(0xFFF2F2F7)),
-                      const SizedBox(height: 10),
-                      ...record.items.map(_buildItemRow),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
