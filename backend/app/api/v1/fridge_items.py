@@ -19,6 +19,7 @@ def add_item(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    """新增冰箱食材，支持可空字段 expiration_date。"""
     item = FridgeService.create_item(db, item_in, user_id=current_user.id)
     return success_response(data=FridgeItem.model_validate(item).model_dump())
 

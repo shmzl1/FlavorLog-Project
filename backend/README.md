@@ -224,6 +224,20 @@ http://127.0.0.1:8000/docs
 docker compose up -d
 ```
 
+### 已有数据库执行字段补齐迁移（fridge_items.expiration_date）
+
+如果你的本地数据库是旧结构（`fridge_items` 缺少 `expiration_date`），请在项目根目录执行：
+
+```powershell
+docker exec -i flavorlog-postgres psql -U flavorlog_user -d flavorlog < backend\database\migrations\20260528_add_expiration_date_to_fridge_items.sql
+```
+
+执行后可验证：
+
+```powershell
+docker exec -it flavorlog-postgres psql -U flavorlog_user -d flavorlog -c "\d fridge_items"
+```
+
 ### 停止数据库
 
 ```powershell

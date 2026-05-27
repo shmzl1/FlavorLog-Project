@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS fridge_items (
     quantity NUMERIC(10, 2) DEFAULT 1,
     unit VARCHAR(30),
     weight_g NUMERIC(10, 2),
-    -- 💡 核心修复点：将 expire_date DATE 改为与 Python 契约完全一致的 expiration_date TIMESTAMPTZ
+    -- 与后端 ORM / Schema 契约保持一致：使用 expiration_date TIMESTAMPTZ
     expiration_date TIMESTAMPTZ,
     storage_location VARCHAR(50),
     remark TEXT,
@@ -199,7 +199,7 @@ CREATE INDEX IF NOT EXISTS idx_food_records_user_time ON food_records(user_id, r
 CREATE INDEX IF NOT EXISTS idx_food_record_items_record_id ON food_record_items(food_record_id);
 
 CREATE INDEX IF NOT EXISTS idx_fridge_items_user_id ON fridge_items(user_id);
--- 💡 同步修复索引字段名
+-- 与字段 expiration_date 对齐的索引
 CREATE INDEX IF NOT EXISTS idx_fridge_items_expiration_date ON fridge_items(expiration_date);
 
 CREATE INDEX IF NOT EXISTS idx_health_feedbacks_user_id ON health_feedbacks(user_id);

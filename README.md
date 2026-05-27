@@ -155,6 +155,8 @@ docker ps
 
 如果看到 `flavorlog-postgres`，说明数据库启动成功。
 
+如果是已有数据库（历史数据卷未重建），请额外执行 `backend/database/migrations/` 目录中的字段补齐 SQL（例如 `20260528_add_expiration_date_to_fridge_items.sql`），避免表结构落后导致接口 500。
+
 当前数据库连接信息：
 
 ```text
