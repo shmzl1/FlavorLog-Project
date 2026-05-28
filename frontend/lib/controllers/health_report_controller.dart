@@ -1,5 +1,5 @@
-import 'package:get/get.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
 import '../models/health_model.dart';
 import '../services/api/health_service.dart';
@@ -24,7 +24,6 @@ class HealthReportController extends GetxController {
     loadFeedbacks();
   }
 
-  /// 获取红黑榜
   Future<void> loadBlacklist() async {
     isLoadingBlacklist.value = true;
     errorMessage.value = '';
@@ -32,17 +31,25 @@ class HealthReportController extends GetxController {
       final resp = await _service.getBlacklist();
       if (resp.isSuccess) {
         blacklist.value = resp.data;
+        final data = resp.data;
+        debugPrint(
+          '[HealthReportController] blacklist loaded: blackItems=${data?.blackItems.length ?? 0}, redItems=${data?.redItems.length ?? 0}',
+        );
       } else {
         errorMessage.value = resp.message;
+        debugPrint(
+          '[HealthReportController] blacklist failed: code=${resp.code}, message=${resp.message}',
+        );
       }
-    } catch (e) {
+    } catch (e, st) {
       errorMessage.value = '获取红黑榜失败';
+      debugPrint('[HealthReportController] blacklist exception: $e');
+      debugPrint('$st');
     } finally {
       isLoadingBlacklist.value = false;
     }
   }
 
-  /// 获取健康周报
   Future<void> loadWeeklyReport({String? weekStart}) async {
     isLoadingReport.value = true;
     errorMessage.value = '';
@@ -71,21 +78,40 @@ class HealthReportController extends GetxController {
     }
   }
 
-  /// 获取健康反馈列表
   Future<void> loadFeedbacks() async {
     try {
       final resp = await _service.getFeedbacks(pageSize: 20);
       if (resp.isSuccess && resp.data != null) {
-        final list = (resp.data!['items'] as List<dynamic>? ?? [])
-            .map((e) =>
-                HealthFeedbackModel.fromJson(e as Map<String, dynamic>))
+        final raw = resp.data;
+        final List<dynamic> listData;
+        if (raw is List) {
+          listData = raw;
+        } else if (raw is Map && raw['items'] is List) {
+          listData = raw['items'] as List<dynamic>;
+        } else {
+          listData = <dynamic>[];
+        }
+
+        final list = listData
+            .map(
+              (e) => HealthFeedbackModel.fromJson(e as Map<String, dynamic>),
+            )
             .toList();
         feedbacks.assignAll(list);
+        debugPrint(
+          '[HealthReportController] feedbacks loaded: count=${feedbacks.length}',
+        );
+      } else {
+        debugPrint(
+          '[HealthReportController] feedbacks failed: code=${resp.code}, message=${resp.message}',
+        );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      debugPrint('[HealthReportController] feedbacks exception: $e');
+      debugPrint('$st');
+    }
   }
 
-  /// 提交餐后反馈
   Future<bool> submitFeedback({
     required int foodRecordId,
     required int bloatingLevel,
@@ -107,15 +133,26 @@ class HealthReportController extends GetxController {
         digestiveNote: digestiveNote,
         extraSymptoms: extraSymptoms,
       );
+
       if (resp.isSuccess && resp.data != null) {
-        feedbacks.insert(0, resp.data!);
+        debugPrint(
+          '[HealthReportController] submit feedback success: id=${resp.data!.id}',
+        );
+        await loadFeedbacks();
+        await loadBlacklist();
+        await loadWeeklyReport();
         return true;
       } else {
         errorMessage.value = resp.message;
+        debugPrint(
+          '[HealthReportController] submit feedback failed: code=${resp.code}, message=${resp.message}',
+        );
         return false;
       }
-    } catch (e) {
+    } catch (e, st) {
       errorMessage.value = '提交失败，请检查网络';
+      debugPrint('[HealthReportController] submit feedback exception: $e');
+      debugPrint('$st');
       return false;
     } finally {
       isSubmittingFeedback.value = false;

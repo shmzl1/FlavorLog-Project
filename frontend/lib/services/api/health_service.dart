@@ -38,7 +38,7 @@ class HealthService {
   }
 
   /// 获取健康反馈列表 GET /health/feedbacks
-  Future<ApiResponse<Map<String, dynamic>>> getFeedbacks({
+  Future<ApiResponse<dynamic>> getFeedbacks({
     int page = 1,
     int pageSize = 10,
     String? startDate,
@@ -55,7 +55,7 @@ class HealthService {
       queryParameters: params,
     );
     final json = resp.data as Map<String, dynamic>;
-    return ApiResponse.fromJson(json, (raw) => raw as Map<String, dynamic>);
+    return ApiResponse.fromJson(json, (raw) => raw);
   }
 
   /// 获取食物红黑榜 GET /health/blacklist

@@ -25,6 +25,17 @@ def add_health_feedback(
     return success_response(data=feedback)
 
 
+@router.post("/feedbacks", response_model=StandardResponse[HealthFeedbackResponse])
+def create_feedback_by_page_path(
+    obj_in: HealthFeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """兼容前端 REST 路径：POST /health/feedbacks"""
+    feedback = HealthService.create_feedback(db, obj_in=obj_in, user_id=current_user.id)
+    return success_response(data=feedback)
+
+
 @router.get("/", response_model=StandardResponse[List[HealthFeedbackResponse]])
 def read_my_feedbacks(
     db: Session = Depends(get_db),
