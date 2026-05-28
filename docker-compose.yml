@@ -26,6 +26,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  redis:
+    image: ${REDIS_IMAGE:-redis:7}
+    container_name: ${REDIS_CONTAINER_NAME:-flavorlog-redis}
+    restart: unless-stopped
 
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:${REDIS_CONTAINER_PORT:-6379}"
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 volumes:
   flavorlog_postgres_data:

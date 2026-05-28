@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
         redis_ready = True
         print("✅ Redis 连接成功！")
     except Exception as e:
-        print(f"⚠️ Redis 未启动，阶段一将跳过 Redis 后台任务: {e}")
+        print(f"⚠️ Redis 未启动，缓存功能将自动降级: {e}")
 
     if redis_ready:
         sync_task = asyncio.create_task(sync_likes_to_db())

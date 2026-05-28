@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
+from app.core.redis import cache_get_json, cache_set_json, user_cache_key
 from app.core.security import token_generator
 from app.models.user import User
 from app.schemas.auth import AuthLoginRequest
@@ -82,6 +83,15 @@ def login_for_swagger(
 
 
 @router.get("/me", response_model=StandardResponse[UserResponse])
-def read_current_user(current_user: User = Depends(get_current_user)):
-    """获取当前登录用户信息。"""
-    return success_response(data=current_user)
+async def read_current_user(current_user: User = Depends(get_current_user)):
+    """获取当前登录用户信息，优先读取 Redis 缓存。"""
+    key = user_cache_key(current_user.id)
+
+    cached_user = await cache_get_json(key)
+    if cached_user:
+        return success_response(data=cached_user)
+
+    user_data = UserResponse.model_validate(current_user).model_dump(mode="json")
+    await cache_set_json(key, user_data)
+
+    return success_response(data=user_data)

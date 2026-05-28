@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.redis import cache_delete, cache_get_json, cache_set_json, user_cache_key
 from app.schemas.response import StandardResponse, success_response
 from app.schemas.user import UserResponse, UserUpdate
 from app.services.user_service import UserService
@@ -76,19 +77,26 @@ router = APIRouter()
 # 3. 获取当前登录用户信息
 # ==========================================
 @router.get("/me", response_model=StandardResponse[UserResponse])
-def read_current_user(current_user: User = Depends(get_current_user)):
+async def read_current_user(current_user: User = Depends(get_current_user)):
     """
-    获取当前登录用户信息。
+    获取当前登录用户信息，优先读取 Redis 缓存。
     """
-    # current_user 已经是保安验证过的对象，直接包裹返回
-    return success_response(data=current_user)
+    key = user_cache_key(current_user.id)
 
+    cached_user = await cache_get_json(key)
+    if cached_user:
+        return success_response(data=cached_user)
+
+    user_data = UserResponse.model_validate(current_user).model_dump(mode="json")
+    await cache_set_json(key, user_data)
+
+    return success_response(data=user_data)
 
 # ==========================================
 # 4. 修改/完善个人资料 (软柿子一号)
 # ==========================================
 @router.put("/me", response_model=StandardResponse[UserResponse])
-def update_user_me(
+async def update_user_me(
     obj_in: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -96,7 +104,14 @@ def update_user_me(
     """
     完善/修改个人资料。
     支持修改：昵称、性别、身高、体重、健康目标、饮食偏好、过敏源。
+    修改成功后清理 Redis 用户资料缓存。
     """
     updated_user = UserService.update_user(db, db_user=current_user, obj_in=obj_in)
-    
-    return success_response(data=updated_user, msg="个人资料已更新")
+
+    key = user_cache_key(updated_user.id)
+    await cache_delete(key)
+
+    user_data = UserResponse.model_validate(updated_user).model_dump(mode="json")
+    await cache_set_json(key, user_data)
+
+    return success_response(data=user_data, msg="个人资料已更新")

@@ -2,7 +2,7 @@
 
 import os
 from typing import List, Union
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict # type: ignore
 
 # ==========================================
 # 绝对路径定位与环境物理检查
@@ -61,6 +61,11 @@ class Settings(BaseSettings):
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+    # Redis 缓存配置
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_ENABLED: bool = True
+    USER_CACHE_TTL_SECONDS: int = 600
+
     UPLOAD_DIR: str = "backend/uploads"
     MAX_IMAGE_SIZE_MB: int = 10
     MAX_AUDIO_SIZE_MB: int = 30

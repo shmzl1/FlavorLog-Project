@@ -1,6 +1,6 @@
 # backend/app/core/celery_app.py
 import os
-from celery import Celery
+from celery import Celery # type: ignore
 
 """
 【Celery 异步任务队列配置中心】

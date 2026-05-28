@@ -1,16 +1,61 @@
 # backend/app/core/redis.py
 
-import os
-# 💡 明确导入 asyncio 下的 Redis 类
-from redis.asyncio import Redis # type: ignore
+import json
+from typing import Any, Optional
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+from redis.asyncio import Redis  # type: ignore
 
-# 💡 终极杀招：注意这里的 `: Redis`！
-# 我们强行声明 redis_client 的类型就是异步的 Redis。
-# 这样跨文件导入时，Pylance 就绝对不敢再把它当成同步对象了！
-redis_client: Redis = Redis.from_url(REDIS_URL, decode_responses=True)
+from app.core.config import settings
+from app.utils.logger import logger
 
-# 给函数也加上返回值注解，确保万无一失
+redis_client: Redis = Redis.from_url(
+    settings.REDIS_URL,
+    decode_responses=True,
+)
+
+
 async def get_redis() -> Redis:
     return redis_client
+
+
+def user_cache_key(user_id: int) -> str:
+    """用户资料缓存 key。"""
+    return f"flavorlog:user:{user_id}"
+
+
+async def cache_get_json(key: str) -> Optional[dict[str, Any]]:
+    """从 Redis 读取 JSON 对象。Redis 不可用时返回 None。"""
+    if not settings.REDIS_ENABLED:
+        return None
+
+    try:
+        raw_value = await redis_client.get(key)
+        if not raw_value:
+            return None
+        return json.loads(raw_value)
+    except Exception as e:
+        logger.warning("Redis 读取缓存失败 key=%s error=%s", key, e)
+        return None
+
+
+async def cache_set_json(key: str, value: dict[str, Any], ttl_seconds: int | None = None) -> None:
+    """写入 JSON 对象到 Redis。Redis 不可用时静默降级。"""
+    if not settings.REDIS_ENABLED:
+        return
+
+    try:
+        ttl = ttl_seconds or settings.USER_CACHE_TTL_SECONDS
+        await redis_client.set(key, json.dumps(value, ensure_ascii=False), ex=ttl)
+    except Exception as e:
+        logger.warning("Redis 写入缓存失败 key=%s error=%s", key, e)
+
+
+async def cache_delete(key: str) -> None:
+    """删除指定缓存。Redis 不可用时静默降级。"""
+    if not settings.REDIS_ENABLED:
+        return
+
+    try:
+        await redis_client.delete(key)
+    except Exception as e:
+        logger.warning("Redis 删除缓存失败 key=%s error=%s", key, e)
