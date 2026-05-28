@@ -189,49 +189,77 @@ class HomePage extends GetView<HomeController> {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  const SizedBox(
-                    width: 100,
-                    height: 100,
-                    child: CircularProgressIndicator(
-                      value: 0.68,
-                      strokeWidth: 10,
-                      backgroundColor: Color(0xFFF2F2F7),
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text(
-                        "1,340",
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E)),
-                      ),
-                      Text(
-                        "千卡剩余",
-                        style: TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-              const SizedBox(width: 32),
-              Expanded(
-                child: Column(
+          Obx(
+            () => Row(
+              children: [
+                Stack(
+                  alignment: Alignment.center,
                   children: [
-                    _buildNutrientRow("碳水", "120/250 克", 0.48, const Color(0xFF4CD964)),
-                    const SizedBox(height: 12),
-                    _buildNutrientRow("蛋白质", "65/90 克", 0.72, const Color(0xFF5AC8FA)),
-                    const SizedBox(height: 12),
-                    _buildNutrientRow("脂肪", "42/65 克", 0.64, const Color(0xFFFFCC00)),
+                    SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: CircularProgressIndicator(
+                        value: controller.calorieProgress.value,
+                        strokeWidth: 10,
+                        backgroundColor: const Color(0xFFF2F2F7),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFFFF6B35),
+                        ),
+                      ),
+                    ),
+                ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          controller.remainingCaloriesText,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                        ),
+                        const Text(
+                          "千卡剩余",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF8E8E93),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    )
                   ],
                 ),
-              )
-            ],
+                const SizedBox(width: 32),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildNutrientRow(
+                        "碳水",
+                        controller.carbText,
+                        controller.carbProgress.value,
+                        const Color(0xFF4CD964),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNutrientRow(
+                        "蛋白质",
+                        controller.proteinText,
+                        controller.proteinProgress.value,
+                        const Color(0xFF5AC8FA),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNutrientRow(
+                        "脂肪",
+                        controller.fatText,
+                        controller.fatProgress.value,
+                        const Color(0xFFFFCC00),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
           )
         ],
       ),
@@ -428,19 +456,26 @@ class HomePage extends GetView<HomeController> {
           const Icon(Icons.tips_and_updates_rounded, color: Color(0xFFE1B12C), size: 24),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "AI 膳食密语",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF7F8C8D)),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  "检测到你今天蛋白质摄入偏低。晚餐建议在‘赛博冰箱’中选择【鸡胸肉】或【豆腐】，AI 将为你一键解锁低脂高蛋白的定制菜谱方案哦！",
-                  style: TextStyle(fontSize: 13, color: Color(0xFF2C3E50), height: 1.5, fontWeight: FontWeight.w500),
-                ),
-              ],
+            child: Obx(
+              () => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "AI 膳食密语",
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF7F8C8D)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    controller.aiTip.value,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF2C3E50),
+                      height: 1.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         ],
