@@ -207,7 +207,6 @@ class HomePage extends GetView<HomeController> {
                         ),
                       ),
                     ),
-                ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -257,10 +256,10 @@ class HomePage extends GetView<HomeController> {
                       ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
