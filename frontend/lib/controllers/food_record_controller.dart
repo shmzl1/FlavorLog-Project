@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
+import 'home_controller.dart';
 import '../models/food_record_model.dart';
 import '../services/api/food_record_service.dart';
 
@@ -27,11 +28,11 @@ class FoodRecordController extends GetxController {
     errorMessage.value = '';
     try {
       final d = date ?? selectedDate.value;
-      final dateStr =
-          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final dayStart = DateTime(d.year, d.month, d.day, 0, 0, 0);
+      final dayEnd = DateTime(d.year, d.month, d.day, 23, 59, 59);
       final resp = await _service.getRecords(
-        startDate: dateStr,
-        endDate: dateStr,
+        startDate: dayStart.toIso8601String(),
+        endDate: dayEnd.toIso8601String(),
         pageSize: 50,
       );
       if (resp.isSuccess && resp.data != null) {
@@ -79,6 +80,7 @@ class FoodRecordController extends GetxController {
       );
       if (resp.isSuccess && resp.data != null) {
         await loadRecords();
+        await _refreshHomeDashboardIfNeeded();
         return true;
       } else {
         errorMessage.value = resp.message;
@@ -104,6 +106,7 @@ class FoodRecordController extends GetxController {
       final resp = await _service.deleteRecord(recordId);
       if (resp.isSuccess) {
         records.removeWhere((r) => r.id == recordId);
+        await _refreshHomeDashboardIfNeeded();
         return true;
       } else {
         errorMessage.value = resp.message;
@@ -135,4 +138,47 @@ class FoodRecordController extends GetxController {
   /// 当日总碳水
   double get todayTotalCarbohydrate =>
       records.fold(0.0, (sum, r) => sum + r.totalCarbohydrateG);
+
+  Future<bool> updateRecord({
+    required int recordId,
+    required String mealType,
+    required DateTime recordTime,
+    required String sourceType,
+    String? description,
+    required List<FoodItemModel> items,
+  }) async {
+    isSubmitting.value = true;
+    errorMessage.value = '';
+    try {
+      final resp = await _service.updateRecord(
+        recordId: recordId,
+        mealType: mealType,
+        recordTime: recordTime.toIso8601String(),
+        sourceType: sourceType,
+        description: description,
+        items: items,
+      );
+      if (resp.isSuccess && resp.data != null) {
+        await loadRecords();
+        await _refreshHomeDashboardIfNeeded();
+        return true;
+      }
+      errorMessage.value = resp.message;
+      return false;
+    } catch (e, stackTrace) {
+      debugPrint('==== 修改饮食记录崩溃 ====');
+      debugPrint('错误信息: $e');
+      debugPrint('堆栈追踪: $stackTrace');
+      errorMessage.value = '修改崩溃: $e';
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> _refreshHomeDashboardIfNeeded() async {
+    if (Get.isRegistered<HomeController>()) {
+      await Get.find<HomeController>().loadDashboard();
+    }
+  }
 }

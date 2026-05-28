@@ -178,13 +178,16 @@ class HomeController extends GetxController {
       }
 
       final records = resp.data;
-      if (records == null || records.isEmpty) {
+      if (records == null) {
         debugPrint(
-          '[HomeController] loadDashboard fallback(mock): no records today',
+          '[HomeController] loadDashboard fallback(mock): data is null',
         );
         return;
       }
 
+      debugPrint(
+        '[HomeController] loadDashboard success: records.length=${records.length}',
+      );
       _applyRecords(records);
     } catch (e, st) {
       debugPrint('[HomeController] loadDashboard exception: $e');
@@ -193,6 +196,51 @@ class HomeController extends GetxController {
   }
 
   void _applyRecords(List<FoodRecordModel> records) {
+    if (records.isEmpty) {
+      totalCalories.value = 0;
+      totalProteinG.value = 0;
+      totalFatG.value = 0;
+      totalCarbohydrateG.value = 0;
+      mealCount.value = 0;
+
+      remainingCalories.value = targetCalories;
+      calorieProgress.value = 0;
+      carbProgress.value = 0;
+      proteinProgress.value = 0;
+      fatProgress.value = 0;
+
+      todaySummary.value = '今天还没有记录饮食，记录一餐后即可生成实时营养看板。';
+      aiTip.value = '记录早餐、午餐或晚餐后，我会根据真实摄入情况给出饮食建议。';
+
+      stats.assignAll([
+        {
+          'title': '今日热量',
+          'value': '0',
+          'unit': 'kcal',
+          'icon': 'local_fire_department',
+        },
+        {
+          'title': '蛋白质',
+          'value': '0',
+          'unit': 'g',
+          'icon': 'fitness_center',
+        },
+        {
+          'title': '饮水',
+          'value': '1450',
+          'unit': 'ml',
+          'icon': 'water_drop',
+        },
+        {
+          'title': '健康评分',
+          'value': '88',
+          'unit': '分',
+          'icon': 'favorite',
+        },
+      ]);
+      return;
+    }
+
     final sumCalories = records.fold<double>(
       0,
       (prev, r) => prev + r.totalCalories,

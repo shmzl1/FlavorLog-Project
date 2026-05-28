@@ -11,6 +11,20 @@ from app.schemas.health_feedback import HealthFeedbackCreate
 
 class HealthService:
     @staticmethod
+    def _record_total_calories(record: FoodRecord) -> float:
+        main_total = float(record.total_calories or 0)
+        if main_total > 0:
+            return main_total
+        return sum(float(item.calories or 0) for item in record.items)
+
+    @staticmethod
+    def _record_total_protein_g(record: FoodRecord) -> float:
+        main_total = float(record.total_protein_g or 0)
+        if main_total > 0:
+            return main_total
+        return sum(float(item.protein_g or 0) for item in record.items)
+
+    @staticmethod
     def create_feedback(db: Session, obj_in: HealthFeedbackCreate, user_id: int) -> HealthFeedback:
         db_obj = HealthFeedback(**obj_in.model_dump(), user_id=user_id)
         db.add(db_obj)
@@ -93,12 +107,14 @@ class HealthService:
         protein_total = 0.0
         for record in records:
             day = record.record_time.date()
-            totals_by_day[day] = totals_by_day.get(day, 0.0) + float(record.total_calories or 0)
-            protein_total += float(record.total_protein_g or 0)
+            record_calories = HealthService._record_total_calories(record)
+            record_protein = HealthService._record_total_protein_g(record)
+            totals_by_day[day] = totals_by_day.get(day, 0.0) + record_calories
+            protein_total += record_protein
 
-        active_days = max(1, len([value for value in totals_by_day.values() if value > 0]))
-        avg_calories = round(sum(totals_by_day.values()) / active_days, 1)
-        avg_protein = round(protein_total / active_days, 1)
+        # 7天完整统计（含无记录日的0值）
+        avg_calories = round(sum(totals_by_day.values()) / 7, 1)
+        avg_protein = round(protein_total / 7, 1)
 
         warnings = []
         suggestions = []
@@ -108,7 +124,7 @@ class HealthService:
             warnings.append("本周蛋白质摄入偏低")
             suggestions.append("早餐或午餐增加鸡蛋、豆制品、鱼肉等优质蛋白")
         if not records:
-            suggestions.append("暂无本周饮食记录，已返回演示用周报结构")
+            suggestions.append("本周暂无饮食记录，建议先记录三餐以生成个性化周报")
         suggestions.append("继续记录餐后反馈，红黑榜会更准确")
 
         return {

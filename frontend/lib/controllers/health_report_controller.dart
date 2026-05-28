@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/health_model.dart';
 import '../services/api/health_service.dart';
@@ -44,13 +45,27 @@ class HealthReportController extends GetxController {
   /// 获取健康周报
   Future<void> loadWeeklyReport({String? weekStart}) async {
     isLoadingReport.value = true;
+    errorMessage.value = '';
     try {
       final resp = await _service.getWeeklyReport(weekStart: weekStart);
       if (resp.isSuccess) {
         weeklyReport.value = resp.data;
+        final report = resp.data;
+        if (report != null) {
+          debugPrint(
+            '[HealthReportController] weekly report loaded: weekStart=${report.weekStart}, weekEnd=${report.weekEnd}, avgCalories=${report.avgCalories}, avgProteinG=${report.avgProteinG}, calorieTrend.length=${report.calorieTrend.length}',
+          );
+        }
+      } else {
+        errorMessage.value = resp.message;
+        debugPrint(
+          '[HealthReportController] weekly report failed: code=${resp.code}, message=${resp.message}',
+        );
       }
-    } catch (_) {
-      // 静默，周报不影响主页面
+    } catch (e, st) {
+      errorMessage.value = '加载健康周报失败';
+      debugPrint('[HealthReportController] weekly report exception: $e');
+      debugPrint('$st');
     } finally {
       isLoadingReport.value = false;
     }

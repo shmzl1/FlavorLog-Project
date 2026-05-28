@@ -1,5 +1,6 @@
 # backend/app/services/food_record_service.py
 
+from datetime import datetime
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.models.food_record import FoodRecord, FoodRecordItem
@@ -7,12 +8,39 @@ from app.models.fridge_item import FridgeItem
 from app.schemas.food_record import FoodRecordCreate, FoodRecordUpdate
 
 class FoodRecordService:
+    @staticmethod
+    def _calc_totals_from_items(items_data: list[dict]) -> dict:
+        return {
+            "total_calories": sum(float(item.get("calories") or 0) for item in items_data),
+            "total_protein_g": sum(float(item.get("protein_g") or 0) for item in items_data),
+            "total_fat_g": sum(float(item.get("fat_g") or 0) for item in items_data),
+            "total_carbohydrate_g": sum(float(item.get("carbohydrate_g") or 0) for item in items_data),
+        }
+
+    @staticmethod
+    def _should_use_item_totals(value: float | None, has_items: bool) -> bool:
+        if not has_items:
+            return False
+        if value is None:
+            return True
+        return float(value) == 0.0
 
     @staticmethod
     def create_record(db: Session, record_in: FoodRecordCreate, user_id: int) -> FoodRecord:
         """新增单条饮食记录"""
         record_data = record_in.model_dump()
         items_data = record_data.pop("items", [])
+
+        totals = FoodRecordService._calc_totals_from_items(items_data)
+        has_items = len(items_data) > 0
+        if FoodRecordService._should_use_item_totals(record_data.get("total_calories"), has_items):
+            record_data["total_calories"] = totals["total_calories"]
+        if FoodRecordService._should_use_item_totals(record_data.get("total_protein_g"), has_items):
+            record_data["total_protein_g"] = totals["total_protein_g"]
+        if FoodRecordService._should_use_item_totals(record_data.get("total_fat_g"), has_items):
+            record_data["total_fat_g"] = totals["total_fat_g"]
+        if FoodRecordService._should_use_item_totals(record_data.get("total_carbohydrate_g"), has_items):
+            record_data["total_carbohydrate_g"] = totals["total_carbohydrate_g"]
         
         db_record = FoodRecord(**record_data, user_id=user_id)
         
@@ -35,6 +63,17 @@ class FoodRecordService:
         for record_in in records_in:
             record_data = record_in.model_dump()
             items_data = record_data.pop("items", [])
+
+            totals = FoodRecordService._calc_totals_from_items(items_data)
+            has_items = len(items_data) > 0
+            if FoodRecordService._should_use_item_totals(record_data.get("total_calories"), has_items):
+                record_data["total_calories"] = totals["total_calories"]
+            if FoodRecordService._should_use_item_totals(record_data.get("total_protein_g"), has_items):
+                record_data["total_protein_g"] = totals["total_protein_g"]
+            if FoodRecordService._should_use_item_totals(record_data.get("total_fat_g"), has_items):
+                record_data["total_fat_g"] = totals["total_fat_g"]
+            if FoodRecordService._should_use_item_totals(record_data.get("total_carbohydrate_g"), has_items):
+                record_data["total_carbohydrate_g"] = totals["total_carbohydrate_g"]
             
             db_record = FoodRecord(**record_data, user_id=user_id)
             
@@ -90,9 +129,26 @@ class FoodRecordService:
         return db_records
 
     @staticmethod
-    def get_records_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[FoodRecord]:
+    def get_records_by_user(
+        db: Session,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 100,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        meal_type: str | None = None,
+    ) -> List[FoodRecord]:
         """查询饮食记录"""
-        return db.query(FoodRecord).filter(FoodRecord.user_id == user_id).order_by(FoodRecord.record_time.desc()).offset(skip).limit(limit).all()
+        query = db.query(FoodRecord).filter(FoodRecord.user_id == user_id)
+
+        if start_date is not None:
+            query = query.filter(FoodRecord.record_time >= start_date)
+        if end_date is not None:
+            query = query.filter(FoodRecord.record_time <= end_date)
+        if meal_type is not None:
+            query = query.filter(FoodRecord.meal_type == meal_type)
+
+        return query.order_by(FoodRecord.record_time.desc()).offset(skip).limit(limit).all()
 
     @staticmethod
     def get_record_by_id(db: Session, record_id: int, user_id: int) -> Optional[FoodRecord]:

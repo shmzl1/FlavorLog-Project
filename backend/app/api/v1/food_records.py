@@ -1,7 +1,8 @@
 # backend/app/api/v1/food_records.py
 
+from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 # 导入公共依赖
@@ -39,12 +40,37 @@ def add_food_record(
 # ==========================================
 @router.get("/", response_model=StandardResponse[List[FoodRecordResponse]])
 def read_food_records(
-    skip: int = 0, limit: int = 100,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    meal_type: str | None = None,
+    # 兼容历史参数
+    skip: int | None = None,
+    limit: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """【R】查看我的饮食历史日记"""
-    records = FoodRecordService.get_records_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
+    safe_page = page if page > 0 else 1
+    safe_page_size = page_size if page_size > 0 else 50
+    resolved_skip = (safe_page - 1) * safe_page_size
+    resolved_limit = safe_page_size
+
+    if skip is not None and skip >= 0:
+        resolved_skip = skip
+    if limit is not None and limit > 0:
+        resolved_limit = limit
+
+    records = FoodRecordService.get_records_by_user(
+        db,
+        user_id=current_user.id,
+        skip=resolved_skip,
+        limit=resolved_limit,
+        start_date=start_date,
+        end_date=end_date,
+        meal_type=meal_type,
+    )
     return success_response(data=records)
 
 # ==========================================
