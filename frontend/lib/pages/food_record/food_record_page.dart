@@ -1105,8 +1105,15 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
         .toList();
         
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ 请至少完整填写一种食物的信息哦'), backgroundColor: Color(0xFFFFCC00), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存失败',
+        '请至少完整填写一种食物的信息哦',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.warning_rounded, color: Color(0xFFFFCC00)),
       );
       return;
     }
@@ -1122,12 +1129,26 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
     if (ok && mounted) {
       Navigator.of(context).pop();
       widget.controller.loadRecords(); 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🎉 记录已成功保存，今日摘要已同步重算！'), backgroundColor: Color(0xFF20BF6B), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存成功 🎉',
+        '记录已成功保存，今日摘要已同步重算！',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF20BF6B)),
       );
     } else if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.controller.errorMessage.value), backgroundColor: const Color(0xFFFF4757), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存失败',
+        widget.controller.errorMessage.value,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.error_outline_rounded, color: Color(0xFFFF4757)),
       );
     }
   }

@@ -324,8 +324,15 @@ class _FoodVideoResultPageState extends State<FoodVideoResultPage> {
         .whereType<FoodItemModel>()
         .toList();
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ 请至少保留一种食物信息哦'), backgroundColor: Color(0xFFFFCC00), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存失败',
+        '请至少保留一种食物信息哦',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.warning_rounded, color: Color(0xFFFFCC00)),
       );
       return;
     }
@@ -341,12 +348,26 @@ class _FoodVideoResultPageState extends State<FoodVideoResultPage> {
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🎉 饮食记录已成功确认保存！'), backgroundColor: Color(0xFF20BF6B), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存成功 🎉',
+        '饮食记录已成功确认入库！',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF20BF6B)),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage.value), backgroundColor: const Color(0xFFFF4757), behavior: SnackBarBehavior.floating),
+      Get.snackbar(
+        '保存失败',
+        controller.errorMessage.value,
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF1C1C1E).withOpacity(0.9),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 16,
+        icon: const Icon(Icons.error_outline_rounded, color: Color(0xFFFF4757)),
       );
     }
   }

@@ -62,6 +62,8 @@ class UserResponse(UserBase):
     diet_preference: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
 
+    phone: Optional[str] = None
+
 class UserUpdate(BaseModel):
     """
     用户资料更新契约。
@@ -76,6 +78,9 @@ class UserUpdate(BaseModel):
     # 允许修改饮食偏好和过敏源 (对应数据库中的 JSONB)
     diet_preference: Optional[List[str]] = None
     allergens: Optional[List[str]] = None
+    
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
 
     class Config:
         from_attributes = True

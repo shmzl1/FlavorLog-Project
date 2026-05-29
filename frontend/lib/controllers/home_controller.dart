@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../models/food_record_model.dart';
 import '../services/api/food_record_service.dart';
+import 'auth_controller.dart';
 
 class HomeController extends GetxController {
   final RxString username = ''.obs;
@@ -106,7 +107,19 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _syncUsername();
     loadDashboard();
+  }
+
+  void _syncUsername() {
+    if (Get.isRegistered<AuthController>()) {
+      final auth = Get.find<AuthController>();
+      username.value = auth.nickname.value;
+      // 监听变化
+      ever(auth.nickname, (String val) {
+        username.value = val;
+      });
+    }
   }
 
   void loadMockDashboard() {

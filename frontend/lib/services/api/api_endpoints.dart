@@ -16,6 +16,8 @@ class ApiEndpoints {
   static const String login = '/auth/login';
   static const String me = '/auth/me';
 
+  static const String usersMe = '/users/me';
+
   static const String foodRecords = '/food-records/';
   static const String fridgeItems = '/fridge/items/';
   static const String healthFeedbacks = '/health/feedbacks';
