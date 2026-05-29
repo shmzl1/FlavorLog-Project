@@ -1,10 +1,16 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../services/api/api_client.dart';
 import '../services/api/api_endpoints.dart';
 import '../services/api/token_storage.dart';
+
+import 'home_controller.dart';
+import 'fridge_controller.dart';
+import 'food_record_controller.dart';
+import 'health_report_controller.dart';
+import 'profile_controller.dart';
 
 class AuthController extends GetxController {
   final ApiClient _client = ApiClient.instance;
@@ -37,6 +43,7 @@ class AuthController extends GetxController {
         final user = body['data'] as Map<String, dynamic>? ?? {};
         nickname.value = (user['nickname'] as String?) ?? '用户';
         isLoggedIn.value = true;
+        refreshAllControllersData();
       } else {
         await TokenStorage.clearToken();
         isLoggedIn.value = false;
@@ -83,6 +90,7 @@ class AuthController extends GetxController {
         token.value = accessToken;
         nickname.value = (user['nickname'] as String?) ?? '用户';
         isLoggedIn.value = true;
+        refreshAllControllersData();
         return true;
       } else {
         errorMessage.value = body['message'] as String? ?? '登录失败';
@@ -169,6 +177,7 @@ class AuthController extends GetxController {
         token.value = accessToken;
         this.nickname.value = (user['nickname'] as String?) ?? nickname.trim();
         isLoggedIn.value = true;
+        refreshAllControllersData();
         return true;
       }
       errorMessage.value = body['message'] as String? ?? '注册失败';
@@ -230,5 +239,34 @@ class AuthController extends GetxController {
     token.value = '';
     nickname.value = '';
     clearError();
+  }
+
+  /// 登录或注册成功后，主动刷新各个持久控制器的状态，防止其界面显示老旧/空白数据
+  void refreshAllControllersData() {
+    // 1. 刷新首页看板与用户名
+    if (Get.isRegistered<HomeController>()) {
+      final homeCtrl = Get.find<HomeController>();
+      homeCtrl.username.value = nickname.value;
+      homeCtrl.loadDashboard();
+    }
+    // 2. 刷新冰箱物品
+    if (Get.isRegistered<FridgeController>()) {
+      Get.find<FridgeController>().loadItems();
+    }
+    // 3. 刷新饮食记录
+    if (Get.isRegistered<FoodRecordController>()) {
+      Get.find<FoodRecordController>().loadRecords();
+    }
+    // 4. 刷新健康周报与红黑榜
+    if (Get.isRegistered<HealthReportController>()) {
+      final hrCtrl = Get.find<HealthReportController>();
+      hrCtrl.loadBlacklist();
+      hrCtrl.loadWeeklyReport();
+      hrCtrl.loadFeedbacks();
+    }
+    // 5. 刷新个人中心的用户名
+    if (Get.isRegistered<ProfileController>()) {
+      Get.find<ProfileController>().nickname.value = nickname.value;
+    }
   }
 }

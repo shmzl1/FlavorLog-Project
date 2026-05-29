@@ -173,54 +173,95 @@ class _DateBar extends StatelessWidget {
       final isToday =
           d.year == now.year && d.month == now.month && d.day == now.day;
       return Container(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.015),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: const Border(
+            bottom: BorderSide(color: Color(0xFFF2F2F7), width: 1),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // 前一天
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () =>
-                  controller.changeDate(d.subtract(const Duration(days: 1))),
+            Material(
+              color: const Color(0xFFF2F2F7),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => controller.changeDate(d.subtract(const Duration(days: 1))),
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(Icons.chevron_left_rounded, size: 20, color: Color(0xFF1C1C1E)),
+                ),
+              ),
             ),
-            // 日期标题（可点击唤起日历）
-            Expanded(
-              child: GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: d,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) controller.changeDate(picked);
-                },
+            // 日期标题
+            GestureDetector(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: d,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFFFF6B35), 
+                          onPrimary: Colors.white,
+                          onSurface: Color(0xFF1C1C1E),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) controller.changeDate(picked);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAFAFA),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E5EA), width: 1),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.event_note, size: 16),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.event_note_rounded, size: 16, color: Color(0xFFFF6B35)),
+                    const SizedBox(width: 8),
                     Text(
                       _label(d),
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1C1C1E),
+                      ),
                     ),
                     if (!isToday) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () => controller.changeDate(DateTime.now()),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF8E53), Color(0xFFFF6B35)],
+                            ),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Text('回今天',
-                              style: TextStyle(
-                                  color: Colors.white, fontSize: 11)),
+                          child: const Text(
+                            '回今天',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ],
@@ -228,16 +269,22 @@ class _DateBar extends StatelessWidget {
                 ),
               ),
             ),
-            // 后一天（今天不可前进）
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right,
-                color: isToday ? Colors.grey.shade400 : null,
+            // 后一天
+            Material(
+              color: isToday ? const Color(0xFFF8F9FA) : const Color(0xFFF2F2F7),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isToday ? null : () => controller.changeDate(d.add(const Duration(days: 1))),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: isToday ? const Color(0xFFC7C7CC) : const Color(0xFF1C1C1E),
+                  ),
+                ),
               ),
-              onPressed: isToday
-                  ? null
-                  : () => controller
-                      .changeDate(d.add(const Duration(days: 1))),
             ),
           ],
         ),
@@ -252,12 +299,15 @@ class _SummaryBar extends StatelessWidget {
   const _SummaryBar({required this.controller});
   final FoodRecordController controller;
 
+  // 推荐的目标，对齐 HomeController
+  static const double targetKcal = 2000;
+  static const double targetProtein = 90;
+  static const double targetFat = 65;
+  static const double targetCarb = 250;
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.records.isEmpty) return const SizedBox.shrink();
-      
-      // 前端抗打击动态聚合算法保留
       double computedTotalKcal = 0;
       double computedTotalProtein = 0;
       double computedTotalFat = 0;
@@ -272,23 +322,31 @@ class _SummaryBar extends StatelessWidget {
         }
       }
 
+      final bool hasData = computedTotalKcal > 0;
+
       return Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
         child: Column(
           children: [
-            // 顶部：大比重流光热量大盘
+            // 顶部：流光渐变热量卡片（无数据时显示低饱和度科技灰渐变）
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF6B35), Color(0xFFFF8E53)],
+                gradient: LinearGradient(
+                  colors: hasData
+                      ? [const Color(0xFFFF6B35), const Color(0xFFFF8E53)]
+                      : [const Color(0xFF7F8C8D), const Color(0xFFBDC3C7)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFFF6B35).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)),
+                  BoxShadow(
+                    color: (hasData ? const Color(0xFFFF6B35) : const Color(0xFF7F8C8D)).withOpacity(0.25),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
                 ],
               ),
               child: Row(
@@ -299,40 +357,80 @@ class _SummaryBar extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(10)),
-                          child: const Text("今日累计热量", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            hasData ? "今日累计摄入热量" : "今日营养状态未激活",
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(computedTotalKcal.toStringAsFixed(0), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
+                            Text(
+                              computedTotalKcal.toStringAsFixed(0),
+                              style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900),
+                            ),
                             const SizedBox(width: 4),
-                            Text("kcal", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.bold)),
+                            Text(
+                              "/ ${targetKcal.toStringAsFixed(0)} kcal",
+                              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
-                    child: const Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 36),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(hasData ? 0.2 : 0.15), shape: BoxShape.circle),
+                    child: Icon(
+                      hasData ? Icons.local_fire_department_rounded : Icons.offline_bolt_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   )
                 ],
               ),
             ),
             const SizedBox(height: 14),
             
-            // 底部：三大宏观营养素 Bento 纯白卡片并排
+            // 底部：三大宏观营养素 Bento 圆角白卡并排展示进度（有最大值上限）
             Row(
               children: [
-                Expanded(child: _buildMacroCard("蛋白质", computedTotalProtein, const Color(0xFF5AC8FA), Icons.fitness_center_rounded)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMacroCard("脂肪", computedTotalFat, const Color(0xFFFFCC00), Icons.water_drop_rounded)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMacroCard("碳水", computedTotalCarb, const Color(0xFF4CD964), Icons.grain_rounded)),
+                Expanded(
+                  child: _buildMacroCard(
+                    "蛋白质",
+                    computedTotalProtein,
+                    targetProtein,
+                    const Color(0xFF5AC8FA),
+                    Icons.fitness_center_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMacroCard(
+                    "脂肪",
+                    computedTotalFat,
+                    targetFat,
+                    const Color(0xFFFFCC00),
+                    Icons.water_drop_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMacroCard(
+                    "碳水",
+                    computedTotalCarb,
+                    targetCarb,
+                    const Color(0xFF4CD964),
+                    Icons.grain_rounded,
+                  ),
+                ),
               ],
             )
           ],
@@ -341,33 +439,49 @@ class _SummaryBar extends StatelessWidget {
     });
   }
 
-  /// 封装：微距阴影营养素白卡
-  Widget _buildMacroCard(String label, double value, Color iconColor, IconData icon) {
+  /// 封装：微距阴影营养素白卡，增加目标比对和进度小条
+  Widget _buildMacroCard(String label, double value, double target, Color iconColor, IconData icon) {
+    final double percent = target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 6)),
+          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6)),
         ]
       ),
       child: Column(
         children: [
-          Icon(icon, color: iconColor, size: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 4),
+              Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.bold)),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(value.toStringAsFixed(1), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E))),
-              const SizedBox(width: 2),
-              const Text("g", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E8E93))),
+              Text(value.toStringAsFixed(0), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E))),
+              Text("/${target.toStringAsFixed(0)}g", style: const TextStyle(fontSize: 9, color: Color(0xFFC7C7CC), fontWeight: FontWeight.bold)),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          // 微型进度指示器，拉满细节！
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 4,
+              backgroundColor: const Color(0xFFF2F2F7),
+              valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+            ),
+          )
         ],
       ),
     );
@@ -391,16 +505,73 @@ const _kMealIcons = {
   'snack': Icons.cookie_outlined,
 };
 const _kMealColors = {
-  'breakfast': Color(0xFFFFF3CD),
-  'lunch': Color(0xFFD4EDDA),
-  'dinner': Color(0xFFCCE5FF),
-  'snack': Color(0xFFF8D7DA),
+  'breakfast': Color(0xFFFFCC00),
+  'lunch': Color(0xFF20BF6B),
+  'dinner': Color(0xFF5AC8FA),
+  'snack': Color(0xFFFF4757),
 };
 
 /// [_RecordList] 按餐次（早/午/晚/加餐）分组展示当天饮食记录。
 class _RecordList extends StatelessWidget {
   const _RecordList({required this.controller});
   final FoodRecordController controller;
+
+  void _showAddOptions(BuildContext context, FoodRecordController controller) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E5EA), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFFFEAA7).withOpacity(0.4), shape: BoxShape.circle),
+                child: const Icon(Icons.videocam_outlined, color: Color(0xFFE1B12C), size: 22),
+              ),
+              title: const Text('AI 智慧视频录入', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E))),
+              subtitle: const Text('录制餐食视频，AI 大模型秒级智能识别成分', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+              onTap: () async {
+                Navigator.pop(context);
+                final ok = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FoodVideoEntryPage()),
+                );
+                if (ok == true) controller.loadRecords();
+              },
+            ),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: Divider(height: 1, color: Color(0xFFF2F2F7))),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFF74B9FF).withOpacity(0.2), shape: BoxShape.circle),
+                child: const Icon(Icons.edit_outlined, color: Color(0xFF0984E3), size: 22),
+              ),
+              title: const Text('常规手动录入', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E))),
+              subtitle: const Text('逐项细化填写食物名称、卡路里及三大营养素', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93))),
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true, 
+                  useSafeArea: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                  builder: (_) => _AddRecordSheet(controller: controller),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -426,10 +597,59 @@ class _RecordList extends StatelessWidget {
       }
       
       if (controller.records.isEmpty) {
-        return const EmptyState(
-          icon: Icons.restaurant_menu_outlined,
-          title: '还没有饮食记录',
-          message: '点击右下角"新增记录"，开始记录今天的饮食吧。',
+        return Padding(
+          padding: const EdgeInsets.only(top: 32.0, left: 24, right: 24),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1C1C1E).withOpacity(0.02),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                )
+              ]
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B35).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.restaurant_menu_rounded, size: 48, color: Color(0xFFFF6B35)),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "今日尚未记录餐食",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "无论是美味早餐还是深夜加餐，记录下来即可开启 AI 深度膳食密语分析，即刻体验健康生活！",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93), height: 1.5),
+                ),
+                const SizedBox(height: 22),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddOptions(context, controller),
+                  icon: const Icon(Icons.bolt_rounded, color: Colors.white, size: 16),
+                  label: const Text("秒级智能录入", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6B35),
+                    elevation: 3,
+                    shadowColor: const Color(0xFFFF6B35).withOpacity(0.3),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                )
+              ],
+            ),
+          ),
         );
       }
 
@@ -479,26 +699,60 @@ class _MealGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = _kMealLabels[mealType] ?? mealType;
     final icon = _kMealIcons[mealType] ?? Icons.restaurant;
-    final bg = _kMealColors[mealType] ?? const Color(0xFFEEEEEE);
+    final themeColor = _kMealColors[mealType] ?? const Color(0xFF8E8E93);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          margin: const EdgeInsets.only(top: 12, bottom: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration:
-              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          margin: const EdgeInsets.only(top: 16, bottom: 8, left: 4, right: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: themeColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: themeColor.withOpacity(0.15), width: 1),
+          ),
           child: Row(
             children: [
-              Icon(icon, size: 16, color: Colors.black54),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: themeColor),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: themeColor.withOpacity(0.9),
+                ),
+              ),
               const Spacer(),
-              Text('${totalCalories.toStringAsFixed(0)} kcal',
-                  style:
-                      const TextStyle(color: Colors.black54, fontSize: 12)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: themeColor.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  '${totalCalories.toStringAsFixed(0)} kcal',
+                  style: TextStyle(
+                    color: themeColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -520,55 +774,86 @@ class _RecordCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final mealLabel = _kMealLabels[record.mealType] ?? record.mealType;
     final mealIcon = _kMealIcons[record.mealType] ?? Icons.restaurant;
+    final themeColor = _kMealColors[record.mealType] ?? const Color(0xFFFF6B35);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ExpansionTile(
-        leading: Icon(mealIcon, color: Theme.of(context).colorScheme.primary),
-        title: Text(mealLabel,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(
-          '${record.totalCalories.toStringAsFixed(0)} kcal'
-          '${record.description != null ? '  ·  ${record.description}' : ''}',
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF4757), size: 20),
-              tooltip: '删除',
-              onPressed: () => _confirmDelete(context),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1C1C1E).withOpacity(0.025),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFEFEFF4), width: 1),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent), 
+        child: ExpansionTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: themeColor.withOpacity(0.12),
+              shape: BoxShape.circle,
             ),
-            const Icon(Icons.expand_more_rounded, color: Color(0xFFC7C7CC), size: 22),
+            child: Icon(mealIcon, color: themeColor, size: 18),
+          ),
+          title: Text(
+            mealLabel,
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E), fontSize: 15),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2.0),
+            child: Text(
+              '${record.totalCalories.toStringAsFixed(0)} kcal'
+              '${record.description != null ? '  ·  ${record.description}' : ''}',
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF4757), size: 18),
+                tooltip: '删除',
+                onPressed: () => _confirmDelete(context),
+              ),
+              const Icon(Icons.expand_more_rounded, color: Color(0xFFC7C7CC), size: 20),
+            ],
+          ),
+          children: [
+            if (record.items.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8.0),
+                      child: Divider(height: 1, thickness: 0.5, color: Color(0xFFF2F2F7)),
+                    ),
+                    ...record.items.map((item) => _buildItemRow(item, themeColor)),
+                  ],
+                ),
+              ),
           ],
         ),
-        children: [
-          if (record.items.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(height: 1, thickness: 0.5, color: Color(0xFFF2F2F7)),
-                  const SizedBox(height: 10),
-                  ...record.items.map(_buildItemRow),
-                ],
-              ),
-            ),
-        ],
       ),
     );
   }
 
-  Widget _buildItemRow(FoodItemModel item) {
+  Widget _buildItemRow(FoodItemModel item, Color themeColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(color: Color(0xFFFFCC00), shape: BoxShape.circle),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: themeColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -579,7 +864,7 @@ class _RecordCard extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: const Color(0xFFF2F2F7), borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: const Color(0xFFF2F2F7), borderRadius: BorderRadius.circular(8)),
             child: Text(
               '${item.calories.toStringAsFixed(0)} kcal',
               style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w900),

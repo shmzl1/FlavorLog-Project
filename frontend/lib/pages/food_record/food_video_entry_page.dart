@@ -3,6 +3,7 @@ import 'dart:math' show sin;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'dart:ui';
 
 import '../../services/api/food_record_service.dart';
 import 'food_video_result_page.dart';
@@ -21,6 +22,7 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
   // ── 相机 ──────────────────────────────────────────────────
   CameraController? _cameraController;
   bool _isCameraReady = false;
+  bool _isSimulationMode = false;
 
   // ── 录制状态 ──────────────────────────────────────────────
   bool _isRecording = false;
@@ -53,19 +55,137 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    _cameraController = CameraController(
-      cameras[0],
-      ResolutionPreset.high,
-      enableAudio: true,
-    );
     try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) setState(() => _isSimulationMode = true);
+        return;
+      }
+      _cameraController = CameraController(
+        cameras[0],
+        ResolutionPreset.high,
+        enableAudio: true,
+      );
       await _cameraController!.initialize();
       if (mounted) setState(() => _isCameraReady = true);
     } catch (e) {
       debugPrint('相机初始化失败: $e');
+      if (mounted) {
+        setState(() {
+          _isSimulationMode = true;
+          _isCameraReady = false;
+        });
+      }
     }
+  }
+
+  void _startMockRecording() {
+    setState(() {
+      _isRecording = true;
+      _recordSeconds = 0;
+    });
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _recordSeconds++);
+      if (_recordSeconds >= _maxRecordSeconds) _stopMockRecording();
+    });
+    _waveTimer = Timer.periodic(const Duration(milliseconds: 80), (t) {
+      if (!mounted) return;
+      setState(() {
+        _wavePhase = (_wavePhase + 1) % 360;
+        for (int i = 0; i < _waveHeights.length; i++) {
+          final angle =
+              (i / _waveHeights.length + _wavePhase / 360.0) * 2 * 3.14159;
+          _waveHeights[i] = 4.0 + 22.0 * ((1 + sin(angle * 3.7 + i * 0.8)) / 2);
+        }
+      });
+    });
+  }
+
+  void _stopMockRecording() {
+    _recordTimer?.cancel();
+    _waveTimer?.cancel();
+    setState(() => _isRecording = false);
+    _uploadMockVideo();
+  }
+
+  Future<void> _uploadMockVideo() async {
+    setState(() {
+      _isUploading = true;
+      _uploadStatus = '模拟上传视频中...';
+      _uploadProgress = 0.1;
+    });
+    
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() {
+      _uploadStatus = 'AI 识别食物中 (使用模拟测试数据)...';
+      _uploadProgress = 0.45;
+    });
+    
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    setState(() {
+      _uploadStatus = '生成模拟识别草稿中...';
+      _uploadProgress = 0.85;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    setState(() {
+      _uploadProgress = 1.0;
+    });
+    
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    setState(() => _isUploading = false);
+
+    final mockDrafts = [
+      {
+        'meal_type': 'lunch',
+        'record_time': DateTime.now().toIso8601String(),
+        'description': 'AI 自动模拟识别午餐，包含经典黑椒牛肉意面和健康轻食。',
+        'items': [
+          {
+            'food_name': '黑椒牛肉意面',
+            'weight_g': 350.0,
+            'calories': 520.0,
+            'protein_g': 28.5,
+            'fat_g': 12.0,
+            'carbohydrate_g': 68.0,
+            'confidence': 0.95,
+          },
+          {
+            'food_name': '水煮西兰花',
+            'weight_g': 100.0,
+            'calories': 34.0,
+            'protein_g': 3.0,
+            'fat_g': 0.2,
+            'carbohydrate_g': 7.0,
+            'confidence': 0.88,
+          },
+          {
+            'food_name': '西柚柠檬苏打',
+            'weight_g': 250.0,
+            'calories': 65.0,
+            'protein_g': 0.5,
+            'fat_g': 0.1,
+            'carbohydrate_g': 16.0,
+            'confidence': 0.74,
+          }
+        ],
+      }
+    ];
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FoodVideoResultPage(drafts: mockDrafts),
+      ),
+    );
+
+    if (!mounted) return;
+    if (saved == true) Navigator.pop(context, true);
   }
 
   // ── 开始录制 ──────────────────────────────────────────────
@@ -196,12 +316,98 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
         children: [
           if (_isCameraReady && _cameraController != null)
             Positioned.fill(child: CameraPreview(_cameraController!))
-          else
-            const Positioned.fill(
-              child: ColoredBox(
+          else if (_isSimulationMode)
+            Positioned.fill(
+              child: Container(
                 color: Colors.black,
                 child: Center(
-                  child: CircularProgressIndicator(color: Colors.white54),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.12),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF6B35).withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.videocam_off_rounded,
+                              color: Color(0xFFFF6B35),
+                              size: 32,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            '未检测到摄像头设备',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            '当前处于安卓模拟器或无物理相机环境，已自动为您启用「AI模拟测试模式」。',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: _uploadMockVideo,
+                            icon: const Icon(Icons.auto_awesome, size: 16),
+                            label: const Text('一键测试 AI 识别流光页'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF6B35),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 12),
+                              elevation: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        color: Color(0xFFFF6B35),
+                        strokeWidth: 3,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        '正在初始化相机设备...',
+                        style: TextStyle(color: Colors.white38, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -290,7 +496,39 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
               ],
             ),
           ),
-          const SizedBox(width: 48),
+          GestureDetector(
+            onTap: _uploadMockVideo,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF8A5C), Color(0xFFFF6B35)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF6B35).withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: Colors.white, size: 12),
+                  SizedBox(width: 4),
+                  Text(
+                    '模拟识别',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -353,7 +591,21 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
           ),
         const SizedBox(height: 16),
         GestureDetector(
-          onTap: _isRecording ? _stopRecording : _startRecording,
+          onTap: () {
+            if (_isSimulationMode) {
+              if (_isRecording) {
+                _stopMockRecording();
+              } else {
+                _startMockRecording();
+              }
+            } else {
+              if (_isRecording) {
+                _stopRecording();
+              } else {
+                _startRecording();
+              }
+            }
+          },
           child: AnimatedBuilder(
             animation: _pulseCtrl,
             builder: (_, __) => Transform.scale(
@@ -414,50 +666,79 @@ class _FoodVideoEntryPageState extends State<FoodVideoEntryPage>
 
   Widget _buildUploadOverlay() {
     return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withOpacity(0.75),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), // 磨砂玻璃科技感大底座
+          child: Container(
+            color: Colors.black.withOpacity(0.55), // 微透的黑色更显呼吸感
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 渐变光环脉冲雷达环
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B35).withOpacity(0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFF6B35).withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFF6B35),
+                          strokeWidth: 3.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      _uploadStatus,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: _uploadProgress,
+                        minHeight: 6,
+                        backgroundColor: Colors.white12,
+                        color: const Color(0xFFFF6B35),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${(_uploadProgress * 100).toStringAsFixed(0)}%',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 28),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        '💡 系统正深度调动 AI 解析视频帧与语音数据...',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  _uploadStatus,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: _uploadProgress,
-                    minHeight: 6,
-                    backgroundColor: Colors.white24,
-                    color: Colors.greenAccent,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${(_uploadProgress * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  '系统正在提取视频帧、识别食物、分析语音...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-              ],
+              ),
             ),
           ),
         ),

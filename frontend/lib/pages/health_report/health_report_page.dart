@@ -561,10 +561,69 @@ class _FeedbackTab extends StatelessWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       body: Obx(() {
         if (controller.feedbacks.isEmpty) {
-          return const EmptyState(
-            icon: Icons.feedback_outlined,
-            title: '还没有餐后反馈',
-            message: '点击右下角"新增反馈"，记录你的餐后感受吧。',
+          return Padding(
+            padding: const EdgeInsets.only(top: 40.0, left: 24, right: 24),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1C1C1E).withOpacity(0.015),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    )
+                  ]
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B35).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.rate_review_rounded, size: 48, color: Color(0xFFFF6B35)),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      "暂无餐后感受反馈",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      "身体是最好的晴雨表。记录下每餐之后的腹胀、疲劳情况与整体心境，AI 将帮您构建精准的专属红黑榜单！",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93), height: 1.6),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        backgroundColor: Colors.white,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                        builder: (_) => _AddFeedbackSheet(controller: controller),
+                      ),
+                      icon: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 16),
+                      label: const Text("记录此刻身体状态", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF6B35),
+                        elevation: 3,
+                        shadowColor: const Color(0xFFFF6B35).withOpacity(0.3),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
           );
         }
         return ListView.builder(
@@ -605,16 +664,36 @@ class _FeedbackCard extends StatelessWidget {
     'terrible': '🤢 极其糟糕',
   };
 
+  static const Map<String, String> _symptomLabels = {
+    'thirsty': '极端口渴',
+    'bloated': '胃胀上气',
+    'nausea': '恶心干呕',
+    'heartburn': '胃部反酸',
+    'drowsy': '深度困倦',
+  };
+
   @override
   Widget build(BuildContext context) {
     final moodLabel = _moodLabels[feedback.mood] ?? feedback.mood;
+
+    Color moodThemeColor = const Color(0xFFFF6B35);
+    if (feedback.mood == 'great' || feedback.mood == 'good') moodThemeColor = const Color(0xFF20BF6B);
+    if (feedback.mood == 'bad' || feedback.mood == 'terrible') moodThemeColor = const Color(0xFFFF4757);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 14, left: 4, right: 4),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.02), blurRadius: 16, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1C1C1E).withOpacity(0.025),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          )
+        ],
+        border: Border.all(color: const Color(0xFFEFEFF4), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,18 +701,32 @@ class _FeedbackCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFFF2F2F7), borderRadius: BorderRadius.circular(8)),
-                child: Text('流水记录 #${feedback.foodRecordId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: moodThemeColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.layers_outlined, size: 12, color: moodThemeColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      '记录单 #${feedback.foodRecordId}',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: moodThemeColor),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
+              const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFFC7C7CC)),
+              const SizedBox(width: 4),
               Text(
                 feedback.feedbackTime.length >= 16 ? feedback.feedbackTime.substring(0, 16) : feedback.feedbackTime,
                 style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               _LevelChip(label: '腹胀', level: feedback.bloatingLevel, max: 5),
@@ -642,30 +735,71 @@ class _FeedbackCard extends StatelessWidget {
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: const Color(0xFFFAFAFA), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFEFEFF4))),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAFAFA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFEFEFF4)),
+                ),
                 child: Text(moodLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
               ),
             ],
           ),
           if (feedback.digestiveNote != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFFAFAFA), borderRadius: BorderRadius.circular(12)),
-              child: Text('✍️ 备注：${feedback.digestiveNote!}', style: const TextStyle(color: Color(0xFF636E72), fontSize: 12)),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9E6), 
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFEAA7).withOpacity(0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('✍️ ', style: TextStyle(fontSize: 14)),
+                  Expanded(
+                    child: Text(
+                      feedback.digestiveNote!,
+                      style: const TextStyle(color: Color(0xFF7F8C8D), fontSize: 12, height: 1.5, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
           if (feedback.extraSymptoms.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 6,
+              runSpacing: 6,
               children: feedback.extraSymptoms
-                  .map((s) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFFFF4757).withOpacity(0.06), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFFF4757).withOpacity(0.15))),
-                        child: Text(s, style: const TextStyle(fontSize: 10, color: Color(0xFFFF4757), fontWeight: FontWeight.bold)),
-                      ))
+                  .map((s) {
+                    final String label = _symptomLabels[s] ?? s;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF4757).withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFF4757).withOpacity(0.12)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(color: Color(0xFFFF4757), shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            label,
+                            style: const TextStyle(fontSize: 10, color: Color(0xFFFF4757), fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    );
+                  })
                   .toList(),
             ),
           ],
@@ -691,8 +825,8 @@ class _LevelChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: itemColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: itemColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: itemColor.withOpacity(0.2)),
       ),
       child: Text('$label $level/$max', style: TextStyle(color: itemColor, fontSize: 11, fontWeight: FontWeight.w900)),
     );
@@ -718,12 +852,12 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
   String _mood = 'normal';
   final Set<String> _symptoms = {};
 
-  static const List<DropdownMenuItem<String>> _moodItems = [
-    DropdownMenuItem(value: 'great', child: Text('🔥 状态极佳')),
-    DropdownMenuItem(value: 'good', child: Text('😊 舒适满足')),
-    DropdownMenuItem(value: 'normal', child: Text('🙂 表现平稳')),
-    DropdownMenuItem(value: 'bad', child: Text('🥱 略感不适')),
-    DropdownMenuItem(value: 'terrible', child: Text('🤢 极其糟糕')),
+  static const List<Map<String, String>> _moodOptions = [
+    {'value': 'great', 'emoji': '🔥', 'label': '状态极佳'},
+    {'value': 'good', 'emoji': '😊', 'label': '舒适满足'},
+    {'value': 'normal', 'emoji': '🙂', 'label': '表现平稳'},
+    {'value': 'bad', 'emoji': '🥱', 'label': '略感不适'},
+    {'value': 'terrible', 'emoji': '🤢', 'label': '极其糟糕'},
   ];
 
   static const List<String> _symptomOptions = ['thirsty', 'bloated', 'nausea', 'heartburn', 'drowsy'];
@@ -763,41 +897,79 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: Text('新增餐后反馈', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
-                    IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.of(context).pop()),
+                    const Expanded(child: Text('新增餐后反馈', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E)))),
+                    IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF8E8E93)), onPressed: () => Navigator.of(context).pop()),
                   ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _recordIdCtrl,
                   keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
-                    labelText: '饮食记录 ID*',
+                    labelText: '饮食记录 ID *',
+                    labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.bold),
                     filled: true,
                     fillColor: const Color(0xFFF2F2F7),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    prefixIcon: const Icon(Icons.tag_rounded, color: Color(0xFFFF6B35), size: 18),
                   ),
                   validator: (v) => int.tryParse(v ?? '') == null ? '请填写有效的记录 ID' : null,
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _mood,
-                  decoration: InputDecoration(
-                    labelText: '整体感受',
-                    filled: true,
-                    fillColor: const Color(0xFFF2F2F7),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
-                  items: _moodItems,
-                  onChanged: (v) => setState(() => _mood = v!),
-                ),
                 const SizedBox(height: 20),
-                _SliderField(label: '腹胀程度', value: _bloatingLevel, max: 5, onChanged: (v) => setState(() => _bloatingLevel = v)),
+                const Text('整体感受', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1C1C1E))),
                 const SizedBox(height: 12),
+                
+                // 横排 Emoji 表情点选舱，颜值拉满！
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: _moodOptions.map((opt) {
+                    final bool isSelected = _mood == opt['value'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _mood = opt['value']!),
+                      child: Column(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFFF6B35).withOpacity(0.12) : const Color(0xFFF2F2F7),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFFFF6B35) : Colors.transparent,
+                                width: 2,
+                              ),
+                              boxShadow: isSelected ? [
+                                BoxShadow(
+                                  color: const Color(0xFFFF6B35).withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                )
+                              ] : null,
+                            ),
+                            child: Text(opt['emoji']!, style: const TextStyle(fontSize: 24)),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            opt['label']!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? const Color(0xFFFF6B35) : const Color(0xFF8E8E93),
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                _SliderField(label: '腹胀程度', value: _bloatingLevel, max: 5, onChanged: (v) => setState(() => _bloatingLevel = v)),
+                const SizedBox(height: 16),
                 _SliderField(label: '疲劳程度', value: _fatigueLevel, max: 5, onChanged: (v) => setState(() => _fatigueLevel = v)),
-                const SizedBox(height: 20),
-                const Text('其他伴随症状（可多选）', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
+                const SizedBox(height: 24),
+                const Text('其他伴随症状（可多选）', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1C1C1E))),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -810,35 +982,43 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(color: selected ? Colors.white : const Color(0xFF1C1C1E), fontSize: 12, fontWeight: FontWeight.bold),
                       backgroundColor: const Color(0xFFF2F2F7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide.none),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide.none),
                       onSelected: (v) => setState(() {
                         if (v) { _symptoms.add(s); } else { _symptoms.remove(s); }
                       }),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 TextFormField(
                   controller: _noteCtrl,
                   maxLines: 2,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
                     labelText: '消化备注（可选）',
+                    labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.bold),
+                    hintText: '例：胃部轻微灼烧、有饱腹感...',
+                    hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 12),
                     filled: true,
                     fillColor: const Color(0xFFF2F2F7),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    prefixIcon: const Icon(Icons.sticky_note_2_rounded, color: Color(0xFF20BF6B), size: 18),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 Obx(
                   () => SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: FilledButton(
                       onPressed: widget.controller.isSubmittingFeedback.value ? null : _submit,
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1C1C1E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1C1C1E), 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                       child: widget.controller.isSubmittingFeedback.value
                           ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                          : const Text('安全提交反馈', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          : const Text('安全提交反馈', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5)),
                     ),
                   ),
                 ),
@@ -879,19 +1059,56 @@ class _SliderField extends StatelessWidget {
   final int max;
   final ValueChanged<int> onChanged;
 
+  String _levelText(int v) {
+    if (v == 0) return '无感';
+    if (v <= 2) return '轻微';
+    if (v <= 4) return '中度';
+    return '严重';
+  }
+
+  Color _levelColor(int v) {
+    if (v == 0) return const Color(0xFF20BF6B);
+    if (v <= 2) return const Color(0xFFFFCC00);
+    return const Color(0xFFFF4757);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final color = _levelColor(value);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 72, child: Text('$label $value/$max', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-        Expanded(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1C1C1E))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${_levelText(value)} ($value/$max)',
+                style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: color,
+            thumbColor: color,
+            overlayColor: color.withOpacity(0.12),
+            inactiveTrackColor: const Color(0xFFF2F2F7),
+            trackHeight: 6,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+          ),
           child: Slider(
             value: value.toDouble(),
             min: 0,
             max: max.toDouble(),
             divisions: max,
-            activeColor: const Color(0xFFFF6B35),
-            inactiveColor: const Color(0xFFF2F2F7),
             onChanged: (v) => onChanged(v.round()),
           ),
         ),

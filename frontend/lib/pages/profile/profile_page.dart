@@ -1,8 +1,9 @@
-﻿// frontend/lib/pages/profile/profile_page.dart
+// frontend/lib/pages/profile/profile_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/profile_controller.dart';
+import '../../controllers/auth_controller.dart';
 import '../../app/routes/app_routes.dart';
 
 /// 【类说明：FlavorLog 个人中心页 (现代轻奢极简版)】
@@ -107,15 +108,15 @@ class ProfilePage extends GetView<ProfileController> {
             const SizedBox(height: 14),
             
             // 用户昵称
-            const Text(
-              "美食探索家",
-              style: TextStyle(
+            Obx(() => Text(
+              controller.nickname.value,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold, 
                 color: Color(0xFF1C1C1E), 
                 letterSpacing: 0.5
               ),
-            ),
+            )),
             const SizedBox(height: 6),
             
             // 用户等级勋章标签
@@ -284,7 +285,7 @@ class ProfilePage extends GetView<ProfileController> {
 
   Widget _buildLogoutButton() {
     return InkWell(
-      onTap: () {
+      onTap: () async {
         Get.snackbar(
           '安全下线',
           '账号已成功退出，期待你的下次探索！',
@@ -294,6 +295,12 @@ class ProfilePage extends GetView<ProfileController> {
           margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
           borderRadius: 16,
         );
+        
+        await Future.delayed(const Duration(seconds: 1));
+        if (Get.isRegistered<AuthController>()) {
+          await Get.find<AuthController>().logout();
+          Get.offAllNamed(AppRoutes.auth);
+        }
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
