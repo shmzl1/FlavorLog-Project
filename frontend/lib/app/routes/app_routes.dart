@@ -4,6 +4,7 @@ import '../../pages/auth/auth_gate_page.dart';
 import '../../pages/auth/auth_page.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/community/community_page.dart';
+import '../../pages/community/community_detail_page.dart';
 import '../../pages/profile/profile_page.dart';
 import '../../pages/food_record/food_record_page.dart';
 import '../../pages/cyber_fridge/cyber_fridge_page.dart';
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String cyberFridge = '/cyber-fridge';
   static const String healthReport = '/health-report';
   static const String community = '/community';
+  static const String communityDetail = '/community/detail';
   static const String profile = '/profile';
 
   // 【新增】：为了兼容高颜值首页的大写常量调用，增加路由别名映射
@@ -33,6 +35,7 @@ class AppRoutes {
     GetPage(name: cyberFridge, page: () => const CyberFridgePage()),
     GetPage(name: healthReport, page: () => const HealthReportPage()),
     GetPage(name: community, page: () => const CommunityPage()),
+    GetPage(name: communityDetail, page: () => const CommunityDetailPage()),
     GetPage(name: profile, page: () => const ProfilePage()),
   ];
 }
