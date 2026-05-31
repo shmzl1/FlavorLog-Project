@@ -17,6 +17,7 @@ class ApiEndpoints {
   static const String me = '/auth/me';
 
   static const String usersMe = '/users/me';
+  static const String usersMeStats = '/users/me/stats';
 
   static const String foodRecords = '/food-records/';
   static const String fridgeItems = '/fridge/items/';

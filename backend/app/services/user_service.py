@@ -1,7 +1,11 @@
 # backend/app/services/user_service.py
 
+from datetime import date, datetime, time, timedelta
+
+from sqlalchemy import Date, cast, func
 from sqlalchemy.orm import Session
 from app.models.user import User
+from app.models.food_record import FoodRecord
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import pwd_hasher
 
@@ -142,3 +146,54 @@ class UserService:
         db.commit()
         db.refresh(db_user)
         return db_user
+
+    @staticmethod
+    def get_user_stats(db: Session, user_id: int) -> dict:
+        food_record_count = (
+            db.query(func.count(FoodRecord.id))
+            .filter(FoodRecord.user_id == user_id)
+            .scalar()
+            or 0
+        )
+
+        record_days = (
+            db.query(cast(FoodRecord.record_time, Date))
+            .filter(FoodRecord.user_id == user_id)
+            .distinct()
+            .all()
+        )
+        day_set = {row[0] for row in record_days if row and row[0]}
+        checkin_days = len(day_set)
+
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+        week_start_dt = datetime.combine(week_start, time.min)
+        week_end_dt = datetime.combine(week_start + timedelta(days=6), time.max)
+        weekly_record_count = (
+            db.query(func.count(FoodRecord.id))
+            .filter(
+                FoodRecord.user_id == user_id,
+                FoodRecord.record_time >= week_start_dt,
+                FoodRecord.record_time <= week_end_dt,
+            )
+            .scalar()
+            or 0
+        )
+
+        # Streak rule:
+        # If today has no record, start counting from yesterday, so
+        # the streak does not drop to 0 only because the user has not logged today's meal yet.
+        streak_days = 0
+        if day_set:
+            cursor = today if today in day_set else today - timedelta(days=1)
+            while cursor in day_set:
+                streak_days += 1
+                cursor -= timedelta(days=1)
+
+        return {
+            "checkin_days": checkin_days,
+            "food_record_count": int(food_record_count),
+            "award_count": 0,
+            "weekly_record_count": int(weekly_record_count),
+            "streak_days": streak_days,
+        }

@@ -42,4 +42,23 @@ class UserService extends GetxService {
     }
     return false;
   }
+
+  Future<Map<String, dynamic>?> getMyStats() async {
+    try {
+      final response = await ApiClient.instance.get(ApiEndpoints.usersMeStats);
+      if (response.statusCode == 200) {
+        final body = response.data;
+        if (body['code'] == 0 && body['data'] != null) {
+          return body['data'] as Map<String, dynamic>;
+        }
+        debugPrint('[UserService] getMyStats failed: ${body['message']}');
+      } else {
+        debugPrint('[UserService] getMyStats status code: ${response.statusCode}');
+      }
+    } catch (e, st) {
+      debugPrint('[UserService] getMyStats error: $e');
+      debugPrint('$st');
+    }
+    return null;
+  }
 }

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.redis import cache_delete, cache_get_json, cache_set_json, user_cache_key
 from app.schemas.response import StandardResponse, success_response
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import UserResponse, UserStatsResponse, UserUpdate
 from app.services.user_service import UserService
 
 from app.api.deps import get_db, get_current_user
@@ -115,3 +115,11 @@ async def update_user_me(
     await cache_set_json(key, user_data)
 
     return success_response(data=user_data, msg="个人资料已更新")
+
+@router.get("/me/stats", response_model=StandardResponse[UserStatsResponse])
+def read_current_user_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    stats = UserService.get_user_stats(db, user_id=current_user.id)
+    return success_response(data=stats)

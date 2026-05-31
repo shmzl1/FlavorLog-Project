@@ -33,7 +33,7 @@ class HealthReportController extends GetxController {
         blacklist.value = resp.data;
         final data = resp.data;
         debugPrint(
-          '[HealthReportController] blacklist loaded: blackItems=${data?.blackItems.length ?? 0}, redItems=${data?.redItems.length ?? 0}',
+          '[HealthReportController] blacklist loaded: blackItems=${data?.blackItems.length ?? 0}, redItems=${data?.redItems.length ?? 0}, generatedAt=${data?.generatedAt ?? ''}',
         );
       } else {
         errorMessage.value = resp.message;
@@ -93,9 +93,7 @@ class HealthReportController extends GetxController {
         }
 
         final list = listData
-            .map(
-              (e) => HealthFeedbackModel.fromJson(e as Map<String, dynamic>),
-            )
+            .map((e) => HealthFeedbackModel.fromJson(e as Map<String, dynamic>))
             .toList();
         feedbacks.assignAll(list);
         debugPrint(
@@ -135,20 +133,18 @@ class HealthReportController extends GetxController {
       );
 
       if (resp.isSuccess && resp.data != null) {
-        debugPrint(
-          '[HealthReportController] submit feedback success: id=${resp.data!.id}',
-        );
+        debugPrint('[HealthReportController] submit feedback success: id=${resp.data!.id}');
         await loadFeedbacks();
         await loadBlacklist();
         await loadWeeklyReport();
         return true;
-      } else {
-        errorMessage.value = resp.message;
-        debugPrint(
-          '[HealthReportController] submit feedback failed: code=${resp.code}, message=${resp.message}',
-        );
-        return false;
       }
+
+      errorMessage.value = resp.message;
+      debugPrint(
+        '[HealthReportController] submit feedback failed: code=${resp.code}, message=${resp.message}',
+      );
+      return false;
     } catch (e, st) {
       errorMessage.value = '提交失败，请检查网络';
       debugPrint('[HealthReportController] submit feedback exception: $e');

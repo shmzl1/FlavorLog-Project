@@ -139,14 +139,40 @@ class ProfilePage extends GetView<ProfileController> {
 
   /// 【组件：Bento 风格成就数据栏】
   Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildStatCard("打卡天数", "14", "天", Icons.calendar_month_rounded, const Color(0xFF5AC8FA))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard("记录饮食", "32", "餐", Icons.restaurant_rounded, const Color(0xFFFF8E53))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard("获赞数量", "128", "次", Icons.favorite_rounded, const Color(0xFFFF4757))),
-      ],
+    return Obx(
+      () => Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              "打卡天数",
+              controller.checkinDays.value.toString(),
+              "天",
+              Icons.calendar_month_rounded,
+              const Color(0xFF5AC8FA),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildStatCard(
+              "记录饮食",
+              controller.foodRecordCount.value.toString(),
+              "餐",
+              Icons.restaurant_rounded,
+              const Color(0xFFFF8E53),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildStatCard(
+              "获奖次数",
+              controller.awardCount.value.toString(),
+              "次",
+              Icons.emoji_events_rounded,
+              const Color(0xFFFF4757),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

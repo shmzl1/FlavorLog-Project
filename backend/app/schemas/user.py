@@ -84,3 +84,11 @@ class UserUpdate(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserStatsResponse(BaseModel):
+    checkin_days: int
+    food_record_count: int
+    award_count: int
+    weekly_record_count: int
+    streak_days: int
