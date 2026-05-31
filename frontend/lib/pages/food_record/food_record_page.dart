@@ -573,6 +573,36 @@ class _RecordList extends StatelessWidget {
     );
   }
 
+  void _showErrorDetail(BuildContext context) {
+    final detail = controller.errorDetail.value.trim().isEmpty
+        ? '暂无详细错误信息'
+        : controller.errorDetail.value;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('错误详情'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                detail,
+                style: const TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
@@ -586,12 +616,23 @@ class _RecordList extends StatelessWidget {
       if (controller.errorMessage.value.isNotEmpty) {
         return Padding(
           padding: const EdgeInsets.only(top: 60),
-          child: EmptyState(
-            icon: Icons.cloud_off_outlined,
-            title: '加载失败啦',
-            message: controller.errorMessage.value,
-            actionLabel: '重试刷新',
-            onAction: controller.loadRecords,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: '加载失败啦',
+                message: controller.errorMessage.value,
+                actionLabel: '重试刷新',
+                onAction: controller.loadRecords,
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _showErrorDetail(context),
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('查看错误详情'),
+              ),
+            ],
           ),
         );
       }

@@ -8,7 +8,7 @@ class ApiEndpoints {
   static const String lanBaseUrl = 'http://127.0.0.1:8000/api/v1';
 
   // 切换：模拟器用 localBaseUrl，真机用 lanBaseUrl，这里从本地 local_config.dart 动态读取
-  static const String baseUrl = myLocalBaseUrl;
+  static const String baseUrl = lanBaseUrl;
 
   static const String health = '/health';
 

@@ -12,6 +12,7 @@ class FoodRecordController extends GetxController {
   final RxBool isSubmitting = false.obs;
   final RxList<FoodRecordModel> records = <FoodRecordModel>[].obs;
   final RxString errorMessage = ''.obs;
+  final RxString errorDetail = ''.obs;
 
   // 当前筛选日期（格式 YYYY-MM-DD）
   final Rx<DateTime> selectedDate = DateTime.now().obs;
@@ -26,6 +27,7 @@ class FoodRecordController extends GetxController {
   Future<void> loadRecords({DateTime? date}) async {
     isLoading.value = true;
     errorMessage.value = '';
+    errorDetail.value = '';
     try {
       final d = date ?? selectedDate.value;
       final dayStart = DateTime(d.year, d.month, d.day, 0, 0, 0);
@@ -38,7 +40,10 @@ class FoodRecordController extends GetxController {
       if (resp.isSuccess && resp.data != null) {
         records.assignAll(resp.data!);
       } else {
-        errorMessage.value = resp.message;
+        errorMessage.value = '暂时无法加载饮食记录，请检查后端服务或稍后重试。';
+        errorDetail.value = resp.message;
+        debugPrint('==== 饮食记录加载失败 ====');
+        debugPrint('错误信息: ${resp.message}');
       }
     } catch (e, stackTrace) {
       // 🚨 【核心修复点】: 打印出真正的错误堆栈，不要吞掉错误！
@@ -46,8 +51,9 @@ class FoodRecordController extends GetxController {
       debugPrint('错误信息: $e');
       debugPrint('堆栈追踪: $stackTrace');
       
-      // 把真实的错误 $e 显示到界面上，方便你直接看到是类型解析错还是别的错
-      errorMessage.value = '加载失败: $e';
+      // 页面只显示短提示，完整异常保留在详情和控制台日志里。
+      errorMessage.value = '暂时无法加载饮食记录，请检查后端服务或稍后重试。';
+      errorDetail.value = '$e\n$stackTrace';
     } finally {
       isLoading.value = false;
     }
