@@ -17,6 +17,13 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
   CommunityPostModel get post => Get.arguments as CommunityPostModel;
   int? replyingTo;
 
+  CommunityPostModel _resolvedPost() {
+    for (final item in controller.posts) {
+      if (item.id == post.id && item.isMock == post.isMock) return item;
+    }
+    return post;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,14 +53,17 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
               children: [
-                _PostDetailCard(
-                  post: post,
-                  onLike: () => controller.togglePostLike(post),
-                  onShare: () async {
-                    final ok = await controller.sharePost(post);
-                    if (ok) Get.snackbar('已 Fork', '这条灵感已记录到你的社区互动里。');
-                  },
-                ),
+                Obx(() {
+                  final currentPost = _resolvedPost();
+                  return _PostDetailCard(
+                    post: currentPost,
+                    onLike: () => controller.togglePostLike(currentPost),
+                    onShare: () async {
+                      final ok = await controller.sharePost(currentPost);
+                      if (ok) Get.snackbar('\u5df2 Fork', '\u8fd9\u6761\u7075\u611f\u5df2\u8bb0\u5f55\u5230\u4f60\u7684\u793e\u533a\u4e92\u52a8\u91cc\u3002');
+                    },
+                  );
+                }),
                 const SizedBox(height: 18),
                 const Text('评论', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 12),
@@ -119,30 +129,113 @@ class _PostDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 8)),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(post.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E))),
-          const SizedBox(height: 8),
-          Text('${post.authorName} · ${post.createdAt}', style: const TextStyle(color: Color(0xFF8E8E93), fontWeight: FontWeight.w600)),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            children: post.tags.map((tag) => Chip(label: Text(tag), visualDensity: VisualDensity.compact)).toList(),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Container(
+              height: 260,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFFD3A5), Color(0xFFFF6B35)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 72),
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(post.content, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF2C3E50))),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _ActionButton(icon: post.liked ? Icons.favorite : Icons.favorite_border, label: '${post.likeCount}', onTap: onLike),
-              const SizedBox(width: 10),
-              _ActionButton(icon: Icons.mode_comment_outlined, label: '${post.commentCount}', onTap: () {}),
-              const SizedBox(width: 10),
-              _ActionButton(icon: Icons.fork_right_rounded, label: '${post.shareCount}', onTap: onShare),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Color(0xFFFF6B35),
+                      child: Icon(Icons.person, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorName,
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w900),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            post.createdAt,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  post.title,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E), height: 1.35),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  post.content,
+                  style: const TextStyle(fontSize: 15, height: 1.7, color: Color(0xFF2C3E50), fontWeight: FontWeight.w500),
+                ),
+                if (post.tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: post.tags
+                        .map(
+                          (tag) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF6B35).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              '#$tag',
+                              style: const TextStyle(color: Color(0xFFFF6B35), fontSize: 12, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                const Divider(height: 1, color: Color(0xFFF2F2F7)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _ActionButton(icon: post.liked ? Icons.favorite : Icons.favorite_border, label: '${post.likeCount}', onTap: onLike),
+                    const SizedBox(width: 10),
+                    _ActionButton(icon: Icons.mode_comment_outlined, label: '${post.commentCount}', onTap: () {}),
+                    const SizedBox(width: 10),
+                    _ActionButton(icon: Icons.fork_right_rounded, label: '${post.shareCount}', onTap: onShare),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

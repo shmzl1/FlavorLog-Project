@@ -208,70 +208,27 @@ class _PostCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _TagPill(label: post.tags.isEmpty ? '灵感' : post.tags.first),
+                    _TagPill(label: post.tags.isEmpty ? '\u7075\u611f' : post.tags.first),
                     const SizedBox(height: 6),
                     Text(
                       post.title,
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       post.content,
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF636E72), height: 1.4),
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF636E72), height: 1.35),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const Spacer(),
-                    const Divider(height: 1, thickness: 0.5, color: Color(0xFFF2F2F7)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 8,
-                          backgroundColor: Color(0xFFFF6B35),
-                          child: Icon(Icons.person, size: 8, color: Colors.white),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            post.authorName,
-                            style: const TextStyle(fontSize: 9, color: Color(0xFF8E8E93), fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () => controller.togglePostLike(post),
-                          child: Icon(
-                            post.liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: const Color(0xFFFF4757),
-                            size: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        Text('${post.likeCount}', style: const TextStyle(fontSize: 10, color: Color(0xFF636E72), fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () async {
-                            final ok = await controller.sharePost(post);
-                            if (ok) {
-                              Get.snackbar('已 Fork', '已记录这条灵感，稍后可以继续整理成菜谱。');
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(color: const Color(0xFF20BF6B).withOpacity(0.12), shape: BoxShape.circle),
-                            child: const Icon(Icons.fork_right_rounded, color: Color(0xFF20BF6B), size: 12),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _PostCardFooter(post: post, controller: controller),
                   ],
                 ),
               ),
@@ -279,6 +236,58 @@ class _PostCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PostCardFooter extends StatelessWidget {
+  const _PostCardFooter({required this.post, required this.controller});
+
+  final CommunityPostModel post;
+  final CommunityController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayId = post.authorName.trim().isEmpty ? 'ID ${post.id.abs()}' : post.authorName.trim();
+    return Row(
+      children: [
+        const CircleAvatar(
+          radius: 10,
+          backgroundColor: Color(0xFFFF6B35),
+          child: Icon(Icons.person, size: 10, color: Colors.white),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            displayId,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF8E8E93), fontWeight: FontWeight.w700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        InkWell(
+          onTap: () => controller.togglePostLike(post),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  post.liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: post.liked ? const Color(0xFFFF4757) : const Color(0xFF8E8E93),
+                  size: 15,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '${post.likeCount}',
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF636E72), fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
