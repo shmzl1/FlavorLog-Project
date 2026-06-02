@@ -54,7 +54,7 @@ class CommunityPage extends GetView<CommunityController> {
                       crossAxisCount: 2,
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
-                      childAspectRatio: 0.64,
+                      childAspectRatio: 0.58,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _PostCard(
@@ -193,7 +193,7 @@ class _PostCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 124,
+              height: 108,
               width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -304,11 +304,11 @@ class _PublishButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
-      width: 160,
+      height: 56,
+      width: 56,
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF1C1C1E), Color(0xFF3A3A3C)]),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(color: const Color(0xFF1C1C1E).withOpacity(0.25), blurRadius: 14, offset: const Offset(0, 6)),
         ],
@@ -316,15 +316,10 @@ class _PublishButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(28),
           onTap: () => _showPublishSheet(context),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_photo_alternate_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text('分享低卡灵感', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            ],
+          child: const Center(
+            child: Icon(Icons.add_rounded, color: Colors.white, size: 30),
           ),
         ),
       ),
@@ -342,40 +337,93 @@ class _PublishButton extends StatelessWidget {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('发布灵感', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 16),
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '标题')),
-              TextField(controller: contentCtrl, decoration: const InputDecoration(labelText: '正文'), maxLines: 4),
-              TextField(controller: tagCtrl, decoration: const InputDecoration(labelText: '标签，用逗号分隔')),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () async {
-                    final tags = tagCtrl.text
-                        .split(RegExp(r'[,，]'))
-                        .map((e) => e.trim())
-                        .where((e) => e.isNotEmpty)
-                        .toList();
-                    final ok = await controller.createPost(
-                      title: titleCtrl.text,
-                      content: contentCtrl.text,
-                      tags: tags,
-                    );
-                    if (ok && sheetContext.mounted) Navigator.of(sheetContext).pop();
-                  },
-                  child: const Text('发布'),
+        return SafeArea(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E5EA),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 18),
+                const Text(
+                  '发布灵感',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E)),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: titleCtrl,
+                  textInputAction: TextInputAction.next,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
+                  decoration: _sheetInputDecoration('标题'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentCtrl,
+                  minLines: 4,
+                  maxLines: 6,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), height: 1.5),
+                  decoration: _sheetInputDecoration('正文'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tagCtrl,
+                  textInputAction: TextInputAction.done,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
+                  decoration: _sheetInputDecoration('标签，用逗号分隔'),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final tags = tagCtrl.text
+                          .split(RegExp(r'[,，]'))
+                          .map((e) => e.trim())
+                          .where((e) => e.isNotEmpty)
+                          .toList();
+                      final ok = await controller.createPost(
+                        title: titleCtrl.text,
+                        content: contentCtrl.text,
+                        tags: tags,
+                      );
+                      if (ok && sheetContext.mounted) Navigator.of(sheetContext).pop();
+                    },
+                    child: const Text('发布'),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  InputDecoration _sheetInputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14, fontWeight: FontWeight.w600),
+      filled: true,
+      fillColor: const Color(0xFFF5F5F7),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 1.2),
+      ),
     );
   }
 }
