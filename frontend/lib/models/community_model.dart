@@ -4,7 +4,7 @@ class CommunityPostModel {
   final String title;
   final String content;
   final List<String> tags;
-  final String? coverUrl;
+  final List<String> imageUrls;
   final int likeCount;
   final int commentCount;
   final int shareCount;
@@ -18,7 +18,7 @@ class CommunityPostModel {
     required this.title,
     required this.content,
     required this.tags,
-    this.coverUrl,
+    this.imageUrls = const [],
     required this.likeCount,
     required this.commentCount,
     required this.shareCount,
@@ -27,7 +27,18 @@ class CommunityPostModel {
     this.isMock = false,
   });
 
+  String? get coverUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
+
   factory CommunityPostModel.fromJson(Map<String, dynamic> json) {
+    final imageUrls = (json['image_urls'] as List<dynamic>? ?? [])
+        .map((e) => '$e')
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+    final coverUrl = json['cover_url'] as String?;
+    if (imageUrls.isEmpty && coverUrl != null && coverUrl.trim().isNotEmpty) {
+      imageUrls.add(coverUrl.trim());
+    }
+
     return CommunityPostModel(
       id: json['id'] as int? ?? 0,
       authorName: (json['author_name'] as String?) ??
@@ -37,7 +48,7 @@ class CommunityPostModel {
       title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',
       tags: (json['tags'] as List<dynamic>? ?? []).map((e) => '$e').toList(),
-      coverUrl: json['cover_url'] as String?,
+      imageUrls: imageUrls,
       likeCount: (json['like_count'] as int?) ?? (json['likes'] as int?) ?? 0,
       commentCount: (json['comment_count'] as int?) ?? (json['comments'] as int?) ?? 0,
       shareCount: (json['share_count'] as int?) ??
@@ -50,13 +61,30 @@ class CommunityPostModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'author_name': authorName,
+      'title': title,
+      'content': content,
+      'tags': tags,
+      'image_urls': imageUrls,
+      'like_count': likeCount,
+      'comment_count': commentCount,
+      'share_count': shareCount,
+      'is_liked': liked,
+      'created_at': createdAt,
+      'is_mock': isMock,
+    };
+  }
+
   CommunityPostModel copyWith({
     int? id,
     String? authorName,
     String? title,
     String? content,
     List<String>? tags,
-    String? coverUrl,
+    List<String>? imageUrls,
     int? likeCount,
     int? commentCount,
     int? shareCount,
@@ -70,7 +98,7 @@ class CommunityPostModel {
       title: title ?? this.title,
       content: content ?? this.content,
       tags: tags ?? this.tags,
-      coverUrl: coverUrl ?? this.coverUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       shareCount: shareCount ?? this.shareCount,

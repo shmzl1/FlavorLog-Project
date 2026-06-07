@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/routes/app_routes.dart';
 import '../../controllers/community_controller.dart';
 import '../../models/community_model.dart';
+import '../../services/api/upload_service.dart';
 
 class CommunityPage extends GetView<CommunityController> {
   const CommunityPage({super.key});
@@ -192,20 +195,7 @@ class _PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 108,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFFFD3A5), Color(0xFFFF6B35)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 36),
-            ),
+            _PostCoverImage(imageUrl: post.coverUrl),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -236,6 +226,55 @@ class _PostCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PostCoverImage extends StatelessWidget {
+  const _PostCoverImage({required this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl;
+    if (url == null || url.trim().isEmpty) {
+      return const _PostCoverPlaceholder(height: 108, iconSize: 36);
+    }
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      child: Image.network(
+        resolveImageUrl(url),
+        height: 108,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const _PostCoverPlaceholder(height: 108, iconSize: 36),
+      ),
+    );
+  }
+}
+
+class _PostCoverPlaceholder extends StatelessWidget {
+  const _PostCoverPlaceholder({required this.height, required this.iconSize});
+
+  final double height;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFD3A5), Color(0xFFFF6B35)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: iconSize),
     );
   }
 }
@@ -338,7 +377,11 @@ class _PublishButton extends StatelessWidget {
   void _showPublishSheet(BuildContext context) {
     final titleCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
-    final tagCtrl = TextEditingController(text: '最新发现');
+    final tagCtrl = TextEditingController(text: '\u6700\u65b0\u53d1\u73b0');
+    final picker = ImagePicker();
+    final selectedImages = <XFile>[];
+    var isPublishing = false;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -346,75 +389,180 @@ class _PublishButton extends StatelessWidget {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E5EA),
-                      borderRadius: BorderRadius.circular(2),
+        Future<void> appendImages(List<XFile> files, StateSetter setSheetState) async {
+          if (files.isEmpty) return;
+          final remain = 6 - selectedImages.length;
+          if (remain <= 0) {
+            Get.snackbar('\u63d0\u793a', '\u6700\u591a\u4e0a\u4f20 6 \u5f20\u56fe\u7247');
+            return;
+          }
+          final appendList = files.take(remain).toList();
+          setSheetState(() => selectedImages.addAll(appendList));
+          if (files.length > remain) {
+            Get.snackbar('\u63d0\u793a', '\u6700\u591a\u4e0a\u4f20 6 \u5f20\u56fe\u7247');
+          }
+        }
+
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return SafeArea(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5E5EA),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      '\u53d1\u5e03\u7075\u611f',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E)),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: titleCtrl,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
+                      decoration: _sheetInputDecoration('\u6807\u9898'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: contentCtrl,
+                      minLines: 4,
+                      maxLines: 6,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), height: 1.5),
+                      decoration: _sheetInputDecoration('\u6b63\u6587'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: tagCtrl,
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
+                      decoration: _sheetInputDecoration('\u6807\u7b7e\uff0c\u7528\u9017\u53f7\u5206\u9694'),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isPublishing
+                                ? null
+                                : () async {
+                                    final files = await picker.pickMultiImage();
+                                    await appendImages(files, setSheetState);
+                                  },
+                            icon: const Icon(Icons.photo_library_outlined, size: 18),
+                            label: const Text('\u4ece\u76f8\u518c\u9009\u62e9'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isPublishing
+                                ? null
+                                : () async {
+                                    final file = await picker.pickImage(source: ImageSource.camera);
+                                    if (file != null) await appendImages([file], setSheetState);
+                                  },
+                            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                            label: const Text('\u62cd\u7167'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (selectedImages.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 86,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: selectedImages.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          itemBuilder: (context, index) {
+                            final image = selectedImages[index];
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.file(
+                                    File(image.path),
+                                    width: 86,
+                                    height: 86,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 4,
+                                  top: 4,
+                                  child: InkWell(
+                                    onTap: isPublishing ? null : () => setSheetState(() => selectedImages.removeAt(index)),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), shape: BoxShape.circle),
+                                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: isPublishing
+                            ? null
+                            : () async {
+                                final tags = tagCtrl.text
+                                    .split(RegExp('[,\u{FF0C}]'))
+                                    .map((e) => e.trim())
+                                    .where((e) => e.isNotEmpty)
+                                    .toList();
+                                setSheetState(() => isPublishing = true);
+                                final ok = await controller.createPost(
+                                  title: titleCtrl.text,
+                                  content: contentCtrl.text,
+                                  tags: tags,
+                                  imageFiles: List<XFile>.from(selectedImages),
+                                );
+                                if (ok && sheetContext.mounted) {
+                                  Navigator.of(sheetContext).pop();
+                                  return;
+                                }
+                                if (sheetContext.mounted) {
+                                  setSheetState(() => isPublishing = false);
+                                  final message = controller.errorMessage.value;
+                                  Get.snackbar('\u53d1\u5e03\u5931\u8d25', message.isNotEmpty ? message : '\u8bf7\u7a0d\u540e\u91cd\u8bd5');
+                                }
+                              },
+                        child: isPublishing
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                              )
+                            : const Text('\u53d1\u5e03'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  '发布灵感',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1C1C1E)),
-                ),
-                const SizedBox(height: 18),
-                TextField(
-                  controller: titleCtrl,
-                  textInputAction: TextInputAction.next,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
-                  decoration: _sheetInputDecoration('标题'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contentCtrl,
-                  minLines: 4,
-                  maxLines: 6,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), height: 1.5),
-                  decoration: _sheetInputDecoration('正文'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: tagCtrl,
-                  textInputAction: TextInputAction.done,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E), fontWeight: FontWeight.w700),
-                  decoration: _sheetInputDecoration('标签，用逗号分隔'),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final tags = tagCtrl.text
-                          .split(RegExp(r'[,，]'))
-                          .map((e) => e.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList();
-                      final ok = await controller.createPost(
-                        title: titleCtrl.text,
-                        content: contentCtrl.text,
-                        tags: tags,
-                      );
-                      if (ok && sheetContext.mounted) Navigator.of(sheetContext).pop();
-                    },
-                    child: const Text('发布'),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
