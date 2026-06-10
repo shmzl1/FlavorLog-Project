@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 import 'dart:ui';
 
 import '../../components/empty_state.dart';
+import '../../controllers/food_record_controller.dart';
 import '../../controllers/health_report_controller.dart';
+import '../../models/food_record_model.dart';
 import '../../models/health_model.dart';
 
 /// 【类说明：FlavorLog 智慧健康数据报告主控制台】
@@ -845,12 +847,41 @@ class _AddFeedbackSheet extends StatefulWidget {
 
 class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _recordIdCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  int? _selectedRecordId;
   int _bloatingLevel = 0;
   int _fatigueLevel = 0;
   String _mood = 'normal';
   final Set<String> _symptoms = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // 自动拉取饮食记录，确保下拉框有最新数据
+    if (Get.isRegistered<FoodRecordController>()) {
+      final foodCtrl = Get.find<FoodRecordController>();
+      if (foodCtrl.records.isEmpty) {
+        foodCtrl.loadRecords();
+      } else {
+        _selectedRecordId = foodCtrl.records.first.id;
+      }
+    }
+  }
+
+  static const Map<String, String> _mealTypeLabels = {
+    'breakfast': '早餐',
+    'lunch': '午餐',
+    'dinner': '晚餐',
+    'snack': '加餐',
+  };
+
+  String _recordLabel(FoodRecordModel r) {
+    final meal = _mealTypeLabels[r.mealType] ?? r.mealType;
+    final time = r.recordTime.length >= 16
+        ? r.recordTime.substring(5, 16).replaceAll('T', ' ')
+        : r.recordTime;
+    return '#${r.id} · $meal · $time';
+  }
 
   static const List<Map<String, String>> _moodOptions = [
     {'value': 'great', 'emoji': '🔥', 'label': '状态极佳'},
@@ -872,7 +903,6 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
 
   @override
   void dispose() {
-    _recordIdCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -902,20 +932,7 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _recordIdCtrl,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
-                    labelText: '饮食记录 ID *',
-                    labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.bold),
-                    filled: true,
-                    fillColor: const Color(0xFFF2F2F7),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    prefixIcon: const Icon(Icons.tag_rounded, color: Color(0xFFFF6B35), size: 18),
-                  ),
-                  validator: (v) => int.tryParse(v ?? '') == null ? '请填写有效的记录 ID' : null,
-                ),
+                _buildRecordPicker(),
                 const SizedBox(height: 20),
                 const Text('整体感受', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1C1C1E))),
                 const SizedBox(height: 12),
@@ -1033,9 +1050,16 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    
+    if (_selectedRecordId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('请先选择一条饮食记录'),
+        backgroundColor: Color(0xFFFF4757),
+      ));
+      return;
+    }
+
     final ok = await widget.controller.submitFeedback(
-      foodRecordId: int.parse(_recordIdCtrl.text.trim()),
+      foodRecordId: _selectedRecordId!,
       bloatingLevel: _bloatingLevel,
       fatigueLevel: _fatigueLevel,
       mood: _mood,
@@ -1049,6 +1073,71 @@ class _AddFeedbackSheetState extends State<_AddFeedbackSheet> {
     } else if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(widget.controller.errorMessage.value), backgroundColor: const Color(0xFFFF4757)));
     }
+  }
+
+  Widget _buildRecordPicker() {
+    if (!Get.isRegistered<FoodRecordController>()) {
+      return _buildEmptyRecordHint();
+    }
+    final foodCtrl = Get.find<FoodRecordController>();
+    return Obx(() {
+      final records = foodCtrl.records.toList();
+      if (records.isEmpty) {
+        return _buildEmptyRecordHint();
+      }
+      final currentId = records.any((r) => r.id == _selectedRecordId)
+          ? _selectedRecordId
+          : records.first.id;
+      if (currentId != _selectedRecordId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _selectedRecordId = currentId);
+        });
+      }
+      return DropdownButtonFormField<int>(
+        value: currentId,
+        isExpanded: true,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1C1C1E)),
+        decoration: InputDecoration(
+          labelText: '关联饮食记录 *',
+          labelStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.bold),
+          filled: true,
+          fillColor: const Color(0xFFF2F2F7),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          prefixIcon: const Icon(Icons.tag_rounded, color: Color(0xFFFF6B35), size: 18),
+        ),
+        items: records
+            .map((r) => DropdownMenuItem<int>(
+                  value: r.id,
+                  child: Text(_recordLabel(r), overflow: TextOverflow.ellipsis),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() => _selectedRecordId = v),
+        validator: (v) => v == null ? '请选择关联的饮食记录' : null,
+      );
+    });
+  }
+
+  Widget _buildEmptyRecordHint() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFD6A8)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFFFF9F43), size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '暂无饮食记录，请先到「饮食记录」页面添加一条后再来反馈～',
+              style: TextStyle(color: Color(0xFFA0552D), fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

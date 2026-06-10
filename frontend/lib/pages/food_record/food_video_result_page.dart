@@ -520,7 +520,7 @@ class _ItemCard extends StatelessWidget {
           // 营养数值行
           Row(
             children: [
-              _NumField(ctrl: item.caloriesCtrl, label: '热量(kcal)'),
+              _NumField(ctrl: item.caloriesCtrl, label: '热量 (kcal)'),
               const SizedBox(width: 6),
               _NumField(ctrl: item.proteinCtrl, label: '蛋白(g)'),
               const SizedBox(width: 6),

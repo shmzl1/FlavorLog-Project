@@ -1290,7 +1290,7 @@ class _FoodItemFormWidget extends StatelessWidget {
                   controller: form.caloriesCtrl,
                   keyboardType: TextInputType.number,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  decoration: _buildCompactInputDecoration('热量*'),
+                  decoration: _buildCompactInputDecoration('热量 (kcal)*'),
                   validator: (v) => (double.tryParse(v ?? '') == null) ? '请填写热量' : null,
                 ),
               ),
