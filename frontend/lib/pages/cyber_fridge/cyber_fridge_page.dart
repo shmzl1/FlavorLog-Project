@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'dart:ui';
 import '../../controllers/fridge_controller.dart';
 import '../../models/fridge_item_model.dart';
+import '../../utils/shelf_life_utils.dart';
 import 'fridge_video_entry_page.dart';
 
 /// 【类说明：赛博冰箱 (Cyber Fridge) 现代高颜值全交互版】
@@ -100,7 +101,7 @@ class _FridgeViewState extends State<_FridgeView> {
 
   // ── FridgeItemModel → 卡片所需 Map ─────────────────────────
   Map<String, dynamic> _toCard(FridgeItemModel item) {
-    int days = 99;
+    int days;
     String status = 'safe';
     if (item.expireDate != null) {
       final expire = DateTime.tryParse(item.expireDate!);
@@ -114,6 +115,16 @@ class _FridgeViewState extends State<_FridgeView> {
         } else if (days < 7) {
           status = 'warning';
         }
+      } else {
+        days = ShelfLifeUtils.estimateDays(name: item.name, category: item.category);
+      }
+    } else {
+      // 未填写保质期时，按食材名 / 分类智能估算大概天数
+      days = ShelfLifeUtils.estimateDays(name: item.name, category: item.category);
+      if (days < 3) {
+        status = 'danger';
+      } else if (days < 7) {
+        status = 'warning';
       }
     }
     final cat = item.category ?? '其他';

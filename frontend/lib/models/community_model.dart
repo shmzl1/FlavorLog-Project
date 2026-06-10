@@ -27,6 +27,11 @@ class CommunityPostModel {
     this.isMock = false,
   });
 
+  /// 给 UI 直接展示的时间文本。
+  /// - 后端返回的 ISO 格式（如 2026-06-09T10:30:00.000Z）会被解析为本地时间并展示成「刚刚 / 5 分钟前 / 今天 HH:mm / yyyy-MM-dd HH:mm」；
+  /// - mock 帖子里已经是 “今天 09:12” 这样的文本则原样保留。
+  String get displayCreatedAt => _formatCreatedAt(createdAt);
+
   factory CommunityPostModel.fromJson(Map<String, dynamic> json) {
     return CommunityPostModel(
       id: json['id'] as int? ?? 0,
@@ -141,4 +146,39 @@ class CommunityCommentModel {
       isMock: isMock,
     );
   }
+
+  String get displayCreatedAt => _formatCreatedAt(createdAt);
+}
+
+/// 将后端 ISO 时间字符串格式化为面向用户的可读字符串。
+/// - 非 ISO 字符串（mock 数据中的 "今天 09:12" / "刚刚" 等）会原样返回；
+/// - ISO 字符串按本地时区显示成「刚刚 / N 分钟前 / 今天 HH:mm / 昨天 HH:mm / yyyy-MM-dd HH:mm」。
+String _formatCreatedAt(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return '';
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return value; // 非 ISO 字符串原样展示
+  final local = parsed.isUtc ? parsed.toLocal() : parsed;
+  final now = DateTime.now();
+  final diff = now.difference(local);
+
+  if (diff.inSeconds < 60 && !diff.isNegative) return '刚刚';
+  if (diff.inMinutes < 60 && !diff.isNegative) return '${diff.inMinutes} 分钟前';
+
+  final hh = local.hour.toString().padLeft(2, '0');
+  final mm = local.minute.toString().padLeft(2, '0');
+  final today = DateTime(now.year, now.month, now.day);
+  final localDay = DateTime(local.year, local.month, local.day);
+  final dayDiff = today.difference(localDay).inDays;
+
+  if (dayDiff == 0) return '今天 $hh:$mm';
+  if (dayDiff == 1) return '昨天 $hh:$mm';
+  if (local.year == now.year) {
+    final mo = local.month.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    return '$mo-$d $hh:$mm';
+  }
+  final mo = local.month.toString().padLeft(2, '0');
+  final d = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$mo-$d $hh:$mm';
 }

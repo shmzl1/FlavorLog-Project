@@ -180,7 +180,7 @@ class _PostDetailCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            post.createdAt,
+                            post.displayCreatedAt,
                             style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93), fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

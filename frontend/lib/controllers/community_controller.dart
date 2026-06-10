@@ -23,24 +23,45 @@ class CommunityController extends GetxController {
     posts.assignAll(_mockPosts());
   }
 
+  /// 根据关键字过滤 mock 帖子（标题/正文/标签匹配即命中），用于本地搜索回退。
+  List<CommunityPostModel> _filterMockPosts(String? keyword) {
+    final all = _mockPosts();
+    final kw = keyword?.trim() ?? '';
+    if (kw.isEmpty) return all;
+    final lower = kw.toLowerCase();
+    return all
+        .where((p) =>
+            p.title.toLowerCase().contains(lower) ||
+            p.content.toLowerCase().contains(lower) ||
+            p.tags.any((t) => t.toLowerCase().contains(lower)))
+        .toList();
+  }
+
   Future<void> loadPosts({String? keyword, String? tag}) async {
     isLoading.value = true;
     errorMessage.value = '';
-    if (posts.isEmpty) loadMockPosts();
+    // 默认先把（按关键字过滤后的）mock 帖子铺出来，保证 UI 不会出现空窗
+    final fallbackMocks = _filterMockPosts(keyword);
+    if (posts.isEmpty) posts.assignAll(fallbackMocks);
     try {
       final resp = await _service.getPosts(keyword: keyword, tag: tag);
-      if (resp.isSuccess && resp.data != null && resp.data!.isNotEmpty) {
-        posts.assignAll(resp.data!);
+      if (resp.isSuccess && resp.data != null) {
+        // mock 帖子始终保留在底部，避免发帖 / 搜索后展示区变空
+        final merged = <CommunityPostModel>[
+          ...resp.data!,
+          ...fallbackMocks,
+        ];
+        posts.assignAll(merged);
       } else {
         debugPrint(
           '[CommunityController] load posts fallback: code=${resp.code}, message=${resp.message}, count=${resp.data?.length ?? 0}',
         );
-        loadMockPosts();
+        posts.assignAll(fallbackMocks);
       }
     } catch (e, st) {
       debugPrint('[CommunityController] load posts exception: $e');
       debugPrint('$st');
-      loadMockPosts();
+      posts.assignAll(fallbackMocks);
     } finally {
       isLoading.value = false;
     }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/fridge_item_model.dart';
 import '../../services/api/fridge_service.dart';
+import '../../utils/shelf_life_utils.dart';
 
 /// 冰箱 - 视频扫描录入页
 /// 用户录制一段视频展示食材，AI 自动检测并录入冰箱
@@ -158,11 +159,21 @@ class _FridgeVideoEntryPageState extends State<FridgeVideoEntryPage>
       });
 
       for (final item in confirmed) {
+        final name = item.nameCtrl.text;
+        final expire = ShelfLifeUtils.estimateExpireDate(
+          name: name,
+          category: item.category,
+        );
+        final expireDateStr =
+            '${expire.year.toString().padLeft(4, '0')}-'
+            '${expire.month.toString().padLeft(2, '0')}-'
+            '${expire.day.toString().padLeft(2, '0')}';
         await FridgeService.instance.createItem(
-          name: item.nameCtrl.text,
+          name: name,
           category: item.category,
           quantity: double.tryParse(item.quantityCtrl.text) ?? 1.0,
           unit: item.unitCtrl.text,
+          expireDate: expireDateStr,
         );
       }
 
