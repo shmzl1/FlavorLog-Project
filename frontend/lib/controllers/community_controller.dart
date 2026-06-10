@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/community_model.dart';
 import '../services/api/community_service.dart';
+import '../services/api/upload_service.dart';
 
 class CommunityController extends GetxController {
   final CommunityService _service = CommunityService.instance;
@@ -71,6 +73,7 @@ class CommunityController extends GetxController {
     required String title,
     required String content,
     List<String> tags = const [],
+    List<XFile> imageFiles = const [],
   }) async {
     final cleanTitle = title.trim();
     final cleanContent = content.trim();
@@ -78,20 +81,37 @@ class CommunityController extends GetxController {
       errorMessage.value = '标题和正文不能为空';
       return false;
     }
+    if (imageFiles.length > 6) {
+      errorMessage.value = '最多上传 6 张图片';
+      return false;
+    }
+
+    final normalizedTags = tags.isEmpty ? ['新动态'] : tags;
+    var uploadedImageUrls = <String>[];
     try {
+      for (final file in imageFiles) {
+        uploadedImageUrls.add(await UploadService.instance.uploadCommunityImage(file));
+      }
+
       final resp = await _service.createPost(
         title: cleanTitle,
         content: cleanContent,
-        tags: tags.isEmpty ? ['新动态'] : tags,
+        tags: normalizedTags,
+        imageUrls: uploadedImageUrls,
       );
       if (resp.isSuccess && resp.data != null) {
         await loadPosts();
         return true;
       }
       debugPrint('[CommunityController] create post fallback: ${resp.message}');
+      errorMessage.value = resp.message.isNotEmpty ? resp.message : '发布失败，已使用本地演示数据';
     } catch (e, st) {
       debugPrint('[CommunityController] create post exception: $e');
       debugPrint('$st');
+      errorMessage.value = '发布失败，已使用本地演示数据';
+      if (uploadedImageUrls.length != imageFiles.length) {
+        uploadedImageUrls = <String>[];
+      }
     }
 
     posts.insert(
@@ -101,7 +121,8 @@ class CommunityController extends GetxController {
         authorName: '我',
         title: cleanTitle,
         content: cleanContent,
-        tags: tags.isEmpty ? ['新动态'] : tags,
+        tags: normalizedTags,
+        imageUrls: uploadedImageUrls,
         likeCount: 0,
         commentCount: 0,
         shareCount: 0,
@@ -176,13 +197,13 @@ class CommunityController extends GetxController {
       if (resp.isSuccess && resp.data != null) {
         commentsByPost[postId] = resp.data!;
       } else {
-        debugPrint('[CommunityController] load comments fallback: ${resp.message}');
-        commentsByPost[postId] = _mockComments(postId);
+        debugPrint('[CommunityController] load comments failed: ${resp.message}');
+        commentsByPost[postId] = <CommunityCommentModel>[];
       }
     } catch (e, st) {
       debugPrint('[CommunityController] load comments exception: $e');
       debugPrint('$st');
-      commentsByPost[postId] = _mockComments(postId);
+      commentsByPost[postId] = <CommunityCommentModel>[];
     }
   }
 
@@ -197,11 +218,14 @@ class CommunityController extends GetxController {
           _bumpPostCommentCount(postId);
           return true;
         }
-        debugPrint('[CommunityController] create comment fallback: ${resp.message}');
+        debugPrint('[CommunityController] create comment failed: ${resp.message}');
+        errorMessage.value = resp.message.isNotEmpty ? resp.message : '评论失败，请检查网络';
       } catch (e, st) {
         debugPrint('[CommunityController] create comment exception: $e');
         debugPrint('$st');
+        errorMessage.value = '评论失败，请检查网络';
       }
+      return false;
     }
 
     final comment = CommunityCommentModel(

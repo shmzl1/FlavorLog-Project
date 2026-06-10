@@ -39,7 +39,7 @@ class CommunityService {
     required String title,
     required String content,
     List<String> tags = const [],
-    String? coverUrl,
+    List<String> imageUrls = const [],
     String sourceType = 'manual',
   }) async {
     final resp = await _client.post(
@@ -48,8 +48,10 @@ class CommunityService {
         'title': title,
         'content': content,
         'tags': tags,
-        if (coverUrl != null && coverUrl.isNotEmpty) 'cover_url': coverUrl,
+        'image_urls': imageUrls,
+        if (imageUrls.isNotEmpty) 'cover_url': imageUrls.first,
         'source_type': sourceType,
+        'visibility': 'public',
       },
     );
     final json = resp.data as Map<String, dynamic>;

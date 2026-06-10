@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../controllers/community_controller.dart';
 import '../../models/community_model.dart';
+import '../../services/api/upload_service.dart';
 
 class CommunityDetailPage extends StatefulWidget {
   const CommunityDetailPage({super.key});
@@ -139,22 +140,7 @@ class _PostDetailCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child: Container(
-              height: 260,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFFFD3A5), Color(0xFFFF6B35)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 72),
-            ),
-          ),
+          _DetailImageGallery(imageUrls: post.imageUrls),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
             child: Column(
@@ -238,6 +224,69 @@ class _PostDetailCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DetailImageGallery extends StatelessWidget {
+  const _DetailImageGallery({required this.imageUrls});
+
+  final List<String> imageUrls;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrls.isEmpty) {
+      return const _DetailImagePlaceholder();
+    }
+
+    return SizedBox(
+      height: 280,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(12),
+        itemCount: imageUrls.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final radius = BorderRadius.circular(18);
+          return ClipRRect(
+            borderRadius: radius,
+            child: Image.network(
+              resolveImageUrl(imageUrls[index]),
+              width: MediaQuery.of(context).size.width - 60,
+              height: 256,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const _DetailImagePlaceholder(width: 260, radius: 18),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DetailImagePlaceholder extends StatelessWidget {
+  const _DetailImagePlaceholder({this.width, this.radius = 24});
+
+  final double? width;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: width == null ? const BorderRadius.vertical(top: Radius.circular(24)) : BorderRadius.circular(radius),
+      child: Container(
+        height: width == null ? 260 : 256,
+        width: width ?? double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFD3A5), Color(0xFFFF6B35)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 72),
       ),
     );
   }
