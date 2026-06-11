@@ -5,7 +5,7 @@ class ApiEndpoints {
   static const String localBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
   // 真机联调时，把这里改成电脑局域网 IP。
-  static const String lanBaseUrl = 'http://10.135.8.30:8000/api/v1';
+  static const String lanBaseUrl = 'http://127.0.0.1:8000/api/v1';
 
   // 切换：模拟器用 localBaseUrl，真机用 lanBaseUrl，这里从本地 local_config.dart 动态读取
   static const String baseUrl = lanBaseUrl;

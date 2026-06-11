@@ -195,7 +195,11 @@ class _PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PostCoverImage(imageUrl: post.coverUrl),
+            _PostCoverImage(
+            imageUrl: post.imageUrls.isNotEmpty
+                ? post.imageUrls.first
+                : null,
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
