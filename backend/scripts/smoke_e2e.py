@@ -6,9 +6,20 @@ from uuid import uuid4
 import requests
 from sqlalchemy import create_engine, text
 
+DEFAULT_BASE_URL = "http://127.0.0.1:8000/api/v1"
+DEFAULT_TIMEOUT = 10.0
+TINY_PNG = bytes.fromhex(
+    "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
+    "0000000A49444154789C6360000002000154A24F5D0000000049454E44AE426082"
+)
+
+
+def _cleanup_enabled() -> bool:
+    return os.getenv("SMOKE_CLEANUP", "0") == "1"
+
 
 def _cleanup_user(email: str) -> None:
-    if os.getenv("SMOKE_CLEANUP", "0") != "1":
+    if not _cleanup_enabled():
         return
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
@@ -22,8 +33,9 @@ def _cleanup_user(email: str) -> None:
     with engine.begin() as conn:
         conn.execute(text("delete from users where email = :email"), {"email": email})
 
+
 def _cleanup_uploaded_file(file_url: str) -> None:
-    if os.getenv("SMOKE_CLEANUP", "0") != "1":
+    if not _cleanup_enabled():
         return
     if not file_url or not file_url.startswith("/uploads/"):
         return
@@ -54,9 +66,10 @@ def _pick_data(resp_json: dict) -> dict:
         return resp_json["data"]
     return {}
 
+
+
 def _request_ok(
     s: requests.Session,
-    *,
     method: str,
     url: str,
     timeout: float,
@@ -97,8 +110,8 @@ def _poll_task(
 
 
 def main() -> None:
-    base_url = os.getenv("SMOKE_BASE_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
-    timeout = float(os.getenv("SMOKE_TIMEOUT", "10"))
+    base_url = os.getenv("SMOKE_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    timeout = float(os.getenv("SMOKE_TIMEOUT", str(DEFAULT_TIMEOUT)))
 
     suffix = uuid4().hex[:8]
     username = f"smoke_{suffix}"
@@ -142,11 +155,7 @@ def main() -> None:
     _request_ok(s, method="GET", url=f"{base_url}/auth/me", timeout=timeout)
     _ok("auth/me")
 
-    tiny_png = bytes.fromhex(
-        "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
-        "0000000A49444154789C6360000002000154A24F5D0000000049454E44AE426082"
-    )
-    files = {"file": ("menu.png", tiny_png, "image/png")}
+    files = {"file": ("menu.png", TINY_PNG, "image/png")}
     data = {"scene": "menu"}
     up_json = _request_ok(
         s,
