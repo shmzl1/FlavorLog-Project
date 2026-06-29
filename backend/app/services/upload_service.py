@@ -1,5 +1,5 @@
-import os
 from datetime import datetime
+import os
 import shutil
 from uuid import uuid4
 
@@ -11,6 +11,8 @@ from app.models.upload import UploadFile as UploadFileModel
 
 
 class UploadService:
+    """Handle upload path selection, file persistence, and DB metadata."""
+
     @staticmethod
     def _ensure_dir(path: str) -> None:
         os.makedirs(path, exist_ok=True)
@@ -51,6 +53,8 @@ class UploadService:
     ) -> UploadFileModel:
         rel_dir = UploadService.get_upload_dir(file_type)
 
+        # Always resolve uploads relative to the backend root so file URLs remain stable
+        # across different working directories.
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         abs_dir = os.path.join(backend_root, rel_dir)
         UploadService._ensure_dir(abs_dir)
